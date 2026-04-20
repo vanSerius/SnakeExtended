@@ -34,14 +34,17 @@ window.GameScene = class extends Phaser.Scene {
     this.combo = new window.Combo();
     this.powerUps = new window.PowerUpManager();
 
-    this.food = null;       // {col, row, type: 'apple'|'boss', sprite}
+    this.food = null;       // {col, row, type: 'apple'|'boss', bossKind, sprite}
     this.powerUpItems = []; // [{col, row, powerType, sprite, timeLeft}]
     this.applesEaten = 0;
     this.score = 0;
     this.gameOver = false;
     this.paused = false;
-    this.bossHitCount = 0;
-    this.shrinkFlashMs = 0; // brief HUD highlight after shrink collected
+    this.shrinkFlashMs = 0;
+    this.boss = null;
+    this.arenaTint = null;
+    this.freezeUntilMs = 0;
+    window.BossSelector.reset();
 
     this.tickMs = CFG.TICK_START_MS;
     this.tickAccum = 0;
@@ -115,6 +118,8 @@ window.GameScene = class extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.inputSys.destroy();
       window.AudioFX.stopMusic();
+      if (this.boss) { this.boss.destroy(this); this.boss = null; }
+      if (this.arenaTint) { this.arenaTint.destroy(); this.arenaTint = null; }
       this.powerUpItems.forEach(item => {
         this.tweens.killTweensOf(item.sprite);
         item.sprite.destroy();
@@ -221,21 +226,29 @@ window.GameScene = class extends Phaser.Scene {
     if (this.obstacles.has(col, row)) return true;
     if (this.food && this.food.col === col && this.food.row === row) return true;
     if (this.powerUpItems && this.powerUpItems.some(p => p.col === col && p.row === row)) return true;
+    if (this.boss) {
+      if (this.boss.mines.some(m => m.col === col && m.row === row)) return true;
+      if (this.boss.freezeOrbs.some(o => o.col === col && o.row === row)) return true;
+      if (this.boss.clone && this.boss.clone.col === col && this.boss.clone.row === row) return true;
+    }
     return false;
   }
 
   _spawnFood() {
     const CFG = this.CFG;
     let type = 'apple';
+    let bossKind = null;
     if ((this.applesEaten + 1) % CFG.BOSS_FOOD_EVERY === 0) {
       type = 'boss';
+      bossKind = window.BossSelector.pick(this.rng);
     }
 
     const cell = window.FoodSystem.pick(this.rng, CFG.GRID_COLS, CFG.GRID_ROWS,
       (c, r) => this._isOccupied(c, r));
     if (!cell) return;
 
-    const texKey = type === 'boss' ? 'boss-orb' : 'apple-orb';
+    const def = bossKind ? window.BOSS_TYPES[bossKind] : null;
+    const texKey = type === 'boss' ? def.textureKey : 'apple-orb';
     const w = this._cellToWorld(cell);
     const sprite = this.add.image(w.x, w.y, texKey);
     sprite.setScale(0.65);
@@ -248,7 +261,12 @@ window.GameScene = class extends Phaser.Scene {
     sprite.setAlpha(0);
     this.tweens.add({ targets: sprite, alpha: 1, duration: 200 });
 
-    this.food = { col: cell.col, row: cell.row, type, sprite };
+    this.food = { col: cell.col, row: cell.row, type, bossKind, sprite };
+
+    if (type === 'boss') {
+      this.boss = new window.BossController(this, bossKind);
+      this.boss.onSpawn(this, cell);
+    }
 
     // spawn a separate power-up item alongside (with chance), max 2 on field
     if (this.powerUpItems.length < 2 && this.rng() < CFG.POWERUP_CHANCE) {
@@ -395,7 +413,8 @@ window.GameScene = class extends Phaser.Scene {
   update(time, delta) {
     if (this.gameOver || this.paused) return;
 
-    const effectiveTick = this.tickMs * this.powerUps.tickMultiplier();
+    const freezeMult = (this.freezeUntilMs > this.time.now) ? 2.5 : 1;
+    const effectiveTick = this.tickMs * this.powerUps.tickMultiplier() * freezeMult;
     this.tickAccum += delta;
     this.tickElapsed += delta;
     this.powerUps.update(delta);
@@ -486,9 +505,65 @@ window.GameScene = class extends Phaser.Scene {
       this._addSegmentSprite(this.snake.cells[this.snakeSprites.length], false);
     }
 
+    // mirror clone collision (before food eat)
+    if (this.boss && this.boss.kind === 'mirror' && this.boss.clone) {
+      const clone = this.boss.clone;
+      if (h.col === clone.col && h.row === clone.row) {
+        const cw = this._cellToWorld(clone);
+        const cwx = cw.x + CFG.BOARD_X, cwy = cw.y + CFG.BOARD_Y;
+        window.FX.shockwave(this, cwx, cwy, 0x7c3aed);
+        window.FX.flash(this, 0x7c3aed, 200, 0.2);
+        window.FX.floatText(this, cwx, cwy - 20, 'DECOY!', '#a78bfa', 22);
+        this.boss.rebornClone(this, this.food);
+      }
+    }
+
     // food eat
     if (this.food && h.col === this.food.col && h.row === this.food.row) {
       this._eat();
+    }
+
+    // freeze-orb collision
+    if (this.boss && this.boss.freezeOrbs.length > 0) {
+      for (let i = this.boss.freezeOrbs.length - 1; i >= 0; i--) {
+        const orb = this.boss.freezeOrbs[i];
+        if (h.col === orb.col && h.row === orb.row) {
+          this.freezeUntilMs = this.time.now + 1500;
+          const ow = this._cellToWorld(orb);
+          window.FX.shockwave(this, ow.x + CFG.BOARD_X, ow.y + CFG.BOARD_Y, 0x38bdf8);
+          window.FX.flash(this, 0x38bdf8, 300, 0.25);
+          window.FX.floatText(this, ow.x + CFG.BOARD_X, ow.y + CFG.BOARD_Y - 20, 'FROZEN!', '#38bdf8', 22);
+          this.tweens.killTweensOf(orb.sprite);
+          orb.sprite.destroy();
+          this.boss.freezeOrbs.splice(i, 1);
+          break;
+        }
+      }
+    }
+
+    // mine collision
+    if (this.boss && this.boss.mines.length > 0) {
+      for (let i = this.boss.mines.length - 1; i >= 0; i--) {
+        const mine = this.boss.mines[i];
+        if (h.col === mine.col && h.row === mine.row) {
+          const mw = this._cellToWorld(mine);
+          const mwx = mw.x + CFG.BOARD_X, mwy = mw.y + CFG.BOARD_Y;
+          mine.sprite.destroy();
+          this.boss.mines.splice(i, 1);
+          if (this.powerUps.hasShield()) {
+            this._shieldAbsorb();
+            window.FX.floatText(this, mwx, mwy - 20, 'BLOCKED!', '#fbbf24', 22);
+          } else {
+            window.FX.shockwave(this, mwx, mwy, 0x991b1b);
+            window.FX.flash(this, 0x991b1b, 220, 0.3);
+            window.FX.shake(this, 220, 0.015);
+            window.FX.floatText(this, mwx, mwy - 20, `-${CFG.BOMB_SEGMENT_LOSS}!`, '#ef4444', 26);
+            window.AudioFX.deathSfx();
+            this._shrinkSnakeBy(CFG.BOMB_SEGMENT_LOSS);
+          }
+          break;
+        }
+      }
     }
 
     // power-up item collection
@@ -500,10 +575,11 @@ window.GameScene = class extends Phaser.Scene {
       }
     }
 
-    // boss moves every few ticks
-    if (this.food && this.food.type === 'boss') {
-      this.bossMoveCounter += 1;
-      if (this.bossMoveCounter >= this.CFG.BOSS_MOVE_TICKS) {
+    // boss onTick + movement
+    if (this.food && this.food.type === 'boss' && this.boss) {
+      this.boss.onTick(this);
+      this.bossMoveCounter++;
+      if (this.bossMoveCounter >= CFG.BOSS_MOVE_TICKS) {
         this.bossMoveCounter = 0;
         this._moveBoss();
       }
@@ -519,7 +595,6 @@ window.GameScene = class extends Phaser.Scene {
 
     if (f.type === 'apple') {
       this.applesEaten += 1;
-      this.bossHitCount = 0;
       const mult = this.combo.registerEat();
       const gained = CFG.POINTS_APPLE * mult;
       this.score += gained;
@@ -531,41 +606,63 @@ window.GameScene = class extends Phaser.Scene {
         mult > 1 ? '#fbbf24' : '#ff9fb3', mult > 1 ? 26 : 20);
       const steps = Math.floor(this.applesEaten / CFG.TICK_STEP_EVERY);
       this.tickMs = Math.max(CFG.TICK_MIN_MS, CFG.TICK_START_MS - steps * CFG.TICK_STEP_MS);
-    } else if (f.type === 'boss') {
-      this.bossHitCount += 1;
 
-      if (this.bossHitCount < CFG.BOSS_HP) {
-        // Not caught yet — flash and teleport to opposite side
-        const hitsLeft = CFG.BOSS_HP - this.bossHitCount;
+    } else if (f.type === 'boss') {
+      const hitResult = this.boss.onHit(this);
+
+      if (!hitResult.defeated) {
         window.AudioFX.bossSfx();
         window.FX.vibrate([20, 20, 40]);
-        window.FX.shockwave(this, worldX, worldY, CFG.COLORS.boss);
+        window.FX.shockwave(this, worldX, worldY, this.boss.def.arenaColor);
         window.FX.floatText(this, worldX, worldY - 10,
-          `${hitsLeft} MORE!`, '#fbbf24', 22);
+          `${hitResult.hitsLeft} MORE!`, this.boss.def.arenaHex, 22);
+        if (f.bossKind === 'blitz') {
+          window.FX.flash(this, 0xffffff, 140, 0.35);
+        }
         this._teleportBoss();
-        // emit score update (no change) and return — keep food alive
+        if (f.bossKind === 'mirror') {
+          this.boss.rebornClone(this, this.food);
+        }
         this.hud.events.emit('score', this.score);
-        return;
+        return; // keep food alive
       }
 
-      // 3rd hit — boss finally caught
-      this.bossHitCount = 0;
+      // boss defeated
+      const prevTickMs = this.tickMs;
+      const bossColor = this.boss.def.arenaColor;
+      const bossHex = this.boss.def.arenaHex;
+
+      this.boss.onDefeat(this);
+      this.boss.destroy(this);
+      this.boss = null;
+      this._revertArenaColor();
+
       this.applesEaten += 1;
       const mult = this.combo.registerEat();
       const gained = CFG.POINTS_BOSS * mult + CFG.POINTS_BOSS_BONUS;
       this.score += gained;
-      this.snake.grow(2);
+
+      // halve snake (risk/reward)
+      const newLen = Math.max(3, Math.floor(this.snake.cells.length / 2));
+      const diff = this.snake.cells.length - newLen;
+      if (diff > 0) this._shrinkSnakeBy(diff);
+
       window.AudioFX.bossSfx();
       window.FX.vibrate([30, 30, 60]);
-      window.FX.shockwave(this, worldX, worldY, CFG.COLORS.boss);
-      window.FX.flash(this, CFG.COLORS.boss, 240, 0.2);
-      window.FX.floatText(this, worldX, worldY - 10, `+${gained}  BOSS!`, '#fbbf24', 28);
-      // Speed up game minimally on each boss catch
-      this.tickMs = Math.max(CFG.TICK_MIN_MS, this.tickMs - CFG.BOSS_CATCH_SPEED_BOOST);
-      // Spawn a terrain obstacle as reward/punishment
+      window.FX.shockwave(this, worldX, worldY, bossColor);
+      window.FX.flash(this, bossColor, 240, 0.2);
+      window.FX.floatText(this, worldX, worldY - 10, `+${gained}  BOSS!`, bossHex, 28);
+
       this._spawnObstacle();
+
       const steps = Math.floor(this.applesEaten / CFG.TICK_STEP_EVERY);
-      this.tickMs = Math.max(CFG.TICK_MIN_MS, CFG.TICK_START_MS - steps * CFG.TICK_STEP_MS - CFG.BOSS_CATCH_SPEED_BOOST);
+      this.tickMs = Math.max(CFG.TICK_MIN_MS, CFG.TICK_START_MS - steps * CFG.TICK_STEP_MS);
+
+      if (this.tickMs < prevTickMs) {
+        const cx = CFG.BOARD_X + CFG.BOARD_W / 2;
+        const cy = CFG.BOARD_Y + CFG.BOARD_H / 2;
+        window.FX.floatText(this, cx, cy, 'FASTER', '#fbbf24', 52);
+      }
     }
 
     this.hud.events.emit('score', this.score);
@@ -580,19 +677,20 @@ window.GameScene = class extends Phaser.Scene {
     const f = this.food;
     if (!f || f.type !== 'boss') return;
     const CFG = this.CFG;
+    const bossColor = this.boss ? this.boss.def.arenaColor : CFG.COLORS.boss;
 
-    // Teleport to opposite corner area
-    let nc = CFG.GRID_COLS - 1 - f.col;
-    let nr = CFG.GRID_ROWS - 1 - f.row;
+    // temporarily clear food from occupied check so we can find a new cell
+    const savedCol = f.col, savedRow = f.row;
+    f.col = -1; f.row = -1;
 
-    // Try the opposite spot and a few nearby cells
-    for (let attempt = 0; attempt < 15; attempt++) {
+    let nc = CFG.GRID_COLS - 1 - savedCol;
+    let nr = CFG.GRID_ROWS - 1 - savedRow;
+
+    for (let attempt = 0; attempt < 20; attempt++) {
       const tc = Math.max(1, Math.min(CFG.GRID_COLS - 2, nc));
       const tr = Math.max(1, Math.min(CFG.GRID_ROWS - 2, nr));
-      if (!this.snake.occupies(tc, tr) && !this.obstacles.has(tc, tr) &&
-          !(this.food && this.food.col === tc && this.food.row === tr)) {
-        f.col = tc;
-        f.row = tr;
+      if (!this._isOccupied(tc, tr)) {
+        f.col = tc; f.row = tr;
         const w = this._cellToWorld(f);
         this.tweens.killTweensOf(f.sprite);
         f.sprite.setPosition(w.x, w.y);
@@ -602,20 +700,42 @@ window.GameScene = class extends Phaser.Scene {
           targets: f.sprite, scale: { from: 0.6, to: 0.78 },
           duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
         });
-        window.FX.shockwave(this, w.x + CFG.BOARD_X, w.y + CFG.BOARD_Y, CFG.COLORS.boss);
+        window.FX.shockwave(this, w.x + CFG.BOARD_X, w.y + CFG.BOARD_Y, bossColor);
         return;
       }
-      nc = CFG.GRID_COLS - 1 - f.col + Math.floor(this.rng() * 7) - 3;
-      nr = CFG.GRID_ROWS - 1 - f.row + Math.floor(this.rng() * 7) - 3;
+      nc = CFG.GRID_COLS - 1 - savedCol + Math.floor(this.rng() * 7) - 3;
+      nr = CFG.GRID_ROWS - 1 - savedRow + Math.floor(this.rng() * 7) - 3;
     }
+
+    // fallback: restore original if no spot found
+    f.col = savedCol; f.row = savedRow;
   }
 
   _moveBoss() {
     const f = this.food;
     if (!f || f.type !== 'boss') return;
     const CFG = this.CFG;
-    const dirs = [{c:1,r:0},{c:-1,r:0},{c:0,r:1},{c:0,r:-1}];
-    // try random order
+
+    // record current cell for bomb mine drops (set before moving)
+    if (this.boss) this.boss.lastBossCell = { col: f.col, row: f.row };
+
+    // ask boss variant for a custom step
+    if (this.boss) {
+      const step = this.boss.pickStep(this);
+      if (step !== undefined) {
+        if (step !== null) {
+          f.col = step.nc; f.row = step.nr;
+          const w = this._cellToWorld(f);
+          this.tweens.add({ targets: f.sprite, x: w.x, y: w.y, duration: 180, ease: 'Sine.easeInOut' });
+          this.boss.onMove(this, f);
+        }
+        // null = teleported by pickStep, no further action
+        return;
+      }
+    }
+
+    // random walk (blitz, bomb, phantom; ice when far from head)
+    const dirs = [{ c: 1, r: 0 }, { c: -1, r: 0 }, { c: 0, r: 1 }, { c: 0, r: -1 }];
     for (let i = dirs.length - 1; i > 0; i--) {
       const j = Math.floor(this.rng() * (i + 1));
       [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
@@ -628,18 +748,64 @@ window.GameScene = class extends Phaser.Scene {
       if (this.obstacles.has(nc, nr)) continue;
       f.col = nc; f.row = nr;
       const w = this._cellToWorld(f);
-      this.tweens.add({
-        targets: f.sprite,
-        x: w.x, y: w.y,
-        duration: 180, ease: 'Sine.easeInOut',
-      });
+      this.tweens.add({ targets: f.sprite, x: w.x, y: w.y, duration: 180, ease: 'Sine.easeInOut' });
+      if (this.boss) this.boss.onMove(this, f);
       break;
     }
+  }
+
+  _shrinkSnakeBy(n) {
+    const minLen = 3;
+    const actualRemove = Math.min(n, this.snake.cells.length - minLen);
+    if (actualRemove <= 0) return;
+    this.snake.cells.splice(this.snake.cells.length - actualRemove, actualRemove);
+    for (let i = 0; i < actualRemove; i++) {
+      const s = this.snakeSprites.pop();
+      if (s) { s.body.destroy(); s.glow.destroy(); }
+    }
+  }
+
+  _playArenaColorWave(hex) {
+    const CFG = this.CFG;
+    if (this.arenaTint) {
+      this.tweens.killTweensOf(this.arenaTint);
+      this.arenaTint.destroy();
+      this.arenaTint = null;
+    }
+    const colorInt = parseInt(hex.replace('#', ''), 16);
+    const rect = this.add.rectangle(
+      CFG.BOARD_X + CFG.BOARD_W / 2,
+      CFG.BOARD_Y + CFG.BOARD_H / 2,
+      CFG.BOARD_W, CFG.BOARD_H,
+      colorInt, 0
+    ).setDepth(6);
+    rect.scaleX = 0;
+    this.arenaTint = rect;
+    this.tweens.add({
+      targets: rect,
+      scaleX: 1, alpha: 0.22,
+      duration: 400, ease: 'Sine.easeOut',
+    });
+  }
+
+  _revertArenaColor() {
+    if (!this.arenaTint) return;
+    const tint = this.arenaTint;
+    this.arenaTint = null;
+    this.tweens.add({
+      targets: tint, alpha: 0,
+      duration: this.CFG.BOSS_ARENA_REVERT_MS,
+      onComplete: () => tint.destroy(),
+    });
   }
 
   _die() {
     if (this.gameOver) return;
     this.gameOver = true;
+
+    if (this.boss) { this.boss.onDefeat(this); this.boss.destroy(this); this.boss = null; }
+    if (this.arenaTint) { this.tweens.killTweensOf(this.arenaTint); this.arenaTint.destroy(); this.arenaTint = null; }
+
     const head = this.snake.head();
     const wpos = this._cellToWorld(head);
     const wx = wpos.x + this.CFG.BOARD_X;

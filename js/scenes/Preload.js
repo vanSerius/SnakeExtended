@@ -17,6 +17,66 @@ window.PreloadScene = class extends Phaser.Scene {
     this._makePuShield('pu-shield', size, CFG.COLORS.shield);
     this._makePuShrink('pu-shrink', size, CFG.COLORS.shrink);
 
+    this._makeBossOrb('boss-blitz', size, 0xfbbf24, 0xfde68a, (ctx, cx, cy, r) => {
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath();
+      ctx.moveTo(cx + r * 0.08, cy - r * 0.48);
+      ctx.lineTo(cx - r * 0.14, cy - r * 0.05);
+      ctx.lineTo(cx + r * 0.06, cy - r * 0.05);
+      ctx.lineTo(cx - r * 0.14, cy + r * 0.48);
+      ctx.lineTo(cx + r * 0.18, cy + r * 0.06);
+      ctx.lineTo(cx - r * 0.02, cy + r * 0.06);
+      ctx.closePath();
+      ctx.fill();
+    });
+    this._makeBossOrb('boss-ice', size, 0x38bdf8, 0xbae6fd, (ctx, cx, cy, r) => {
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.55);
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.12, 0, Math.PI * 2); ctx.fill();
+    });
+    this._makeBossOrb('boss-mirror', size, 0x7c3aed, 0xc4b5fd, (ctx, cx, cy, r) => {
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r);
+      ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r * 0.65);
+      ctx.lineTo(cx, cy + r * 0.65);
+      ctx.stroke();
+    });
+    this._makeBossOrb('boss-bomb', size, 0x7f1d1d, 0xfca5a5, (ctx, cx, cy, r) => {
+      ctx.strokeStyle = 'rgba(253,224,71,0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + r * 0.18, cy - r * 0.3);
+      ctx.quadraticCurveTo(cx + r * 0.45, cy - r * 0.58, cx + r * 0.28, cy - r * 0.72);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(253,224,71,0.95)';
+      ctx.beginPath(); ctx.arc(cx + r * 0.28, cy - r * 0.72, r * 0.09, 0, Math.PI * 2); ctx.fill();
+    });
+    this._makeBossOrb('boss-phantom', size, 0x374151, 0x9ca3af, (ctx, cx, cy, r) => {
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, r * 0.44, r * 0.20, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(15,20,35,0.9)';
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.13, 0, Math.PI * 2); ctx.fill();
+    });
+    this._makeMine('mine', size);
+    this._makeFreezeOrb('freeze-orb', size);
+
     this._makeParticle('particle-trail', 24, CFG.COLORS.snake, CFG.COLORS.snakeGlow);
     this._makeParticle('particle-spark', 20, 0xfde68a, 0xfef9c3);
 
@@ -53,6 +113,82 @@ window.PreloadScene = class extends Phaser.Scene {
     ctx.lineTo(x, y + r);
     ctx.quadraticCurveTo(x, y, x + r, y);
     ctx.closePath();
+  }
+
+  _makeBossOrb(key, size, core, glow, glyphFn) {
+    const s = size * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = s; canvas.height = s;
+    const ctx = canvas.getContext('2d');
+    const cx = s / 2, cy = s / 2;
+    const outer = s / 2;
+    const grad = ctx.createRadialGradient(cx, cy, outer * 0.1, cx, cy, outer);
+    grad.addColorStop(0, this._rgba(core, 1));
+    grad.addColorStop(0.45, this._rgba(glow, 0.6));
+    grad.addColorStop(1, this._rgba(glow, 0));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = this._rgba(0xffffff, 0.85);
+    ctx.beginPath();
+    ctx.arc(cx - outer * 0.15, cy - outer * 0.2, outer * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+    if (glyphFn) glyphFn(ctx, cx, cy, outer);
+    this.textures.addCanvas(key, canvas);
+  }
+
+  _makeMine(key, size) {
+    const s = size * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = s; canvas.height = s;
+    const ctx = canvas.getContext('2d');
+    const cx = s / 2, cy = s / 2;
+    const r = s * 0.3;
+    ctx.fillStyle = '#7f1d1d';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = '#fca5a5';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.5, cy); ctx.lineTo(cx + r * 0.5, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.5); ctx.lineTo(cx, cy + r * 0.5); ctx.stroke();
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * (r + 1), cy + Math.sin(a) * (r + 1));
+      ctx.lineTo(cx + Math.cos(a) * (r + 7), cy + Math.sin(a) * (r + 7));
+      ctx.stroke();
+    }
+    this.textures.addCanvas(key, canvas);
+  }
+
+  _makeFreezeOrb(key, size) {
+    const s = size * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = s; canvas.height = s;
+    const ctx = canvas.getContext('2d');
+    const cx = s / 2, cy = s / 2;
+    const outer = s / 2;
+    const grad = ctx.createRadialGradient(cx, cy, outer * 0.08, cx, cy, outer);
+    grad.addColorStop(0, 'rgba(186,230,253,0.95)');
+    grad.addColorStop(0.38, 'rgba(56,189,248,0.6)');
+    grad.addColorStop(1, 'rgba(56,189,248,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, s, s);
+    ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * outer * 0.12, cy + Math.sin(a) * outer * 0.12);
+      ctx.lineTo(cx + Math.cos(a) * outer * 0.52, cy + Math.sin(a) * outer * 0.52);
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.beginPath(); ctx.arc(cx, cy, outer * 0.09, 0, Math.PI * 2); ctx.fill();
+    this.textures.addCanvas(key, canvas);
   }
 
   _makeGlowOrb(key, size, core, glow) {
