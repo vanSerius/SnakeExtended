@@ -1,0 +1,332 @@
+// Boss.js - Boss variant definitions, controller, and selector
+
+window.BOSS_TYPES = {
+  blitz: {
+    key: 'blitz',
+    hp: 3,
+    arenaColor: 0xfbbf24,
+    arenaHex: '#fbbf24',
+    textureKey: 'boss-blitz',
+    label: 'BLITZ',
+  },
+  ice: {
+    key: 'ice',
+    hp: 2,
+    arenaColor: 0x38bdf8,
+    arenaHex: '#38bdf8',
+    textureKey: 'boss-ice',
+    label: 'ICE',
+  },
+  mirror: {
+    key: 'mirror',
+    hp: 2,
+    arenaColor: 0x7c3aed,
+    arenaHex: '#7c3aed',
+    textureKey: 'boss-mirror',
+    label: 'MIRROR',
+  },
+  bomb: {
+    key: 'bomb',
+    hp: 2,
+    arenaColor: 0x991b1b,
+    arenaHex: '#991b1b',
+    textureKey: 'boss-bomb',
+    label: 'BOMB',
+  },
+  phantom: {
+    key: 'phantom',
+    hp: 2,
+    arenaColor: 0x374151,
+    arenaHex: '#94a3b8',
+    textureKey: 'boss-phantom',
+    label: 'PHANTOM',
+  },
+};
+
+// ── BossController ────────────────────────────────────────────────────
+
+window.BossController = class {
+  constructor(scene, kind) {
+    this.kind = kind;
+    this.def = window.BOSS_TYPES[kind];
+    this.hp = this.def.hp;
+    this.hitCount = 0;
+
+    // variant state
+    this.mines = [];
+    this.freezeOrbs = [];
+    this.clone = null;
+    this.history = [];
+    this.invisPhase = 'visible';
+    this.dropCounter = 0;
+    this.lastBossCell = null;
+  }
+
+  onSpawn(scene, cell) {
+    scene._playArenaColorWave(this.def.arenaHex);
+
+    const CFG = scene.CFG;
+    window.FX.floatText(
+      scene,
+      CFG.BOARD_X + CFG.BOARD_W / 2,
+      CFG.BOARD_Y + CFG.BOARD_H / 2 - 40,
+      this.def.label + ' BOSS!',
+      this.def.arenaHex, 34
+    );
+
+    switch (this.kind) {
+      case 'ice':    this._spawnFreezeOrbs(scene); break;
+      case 'mirror': this._spawnClone(scene, cell); break;
+    }
+  }
+
+  onTick(scene) {
+    switch (this.kind) {
+      case 'bomb':    this._bombTick(scene); break;
+      case 'phantom': this._phantomTick(scene); break;
+      case 'mirror':  this._mirrorTick(scene); break;
+    }
+  }
+
+  onMove(scene, cell) {
+    if (this.kind === 'mirror') {
+      this.history.push({ col: cell.col, row: cell.row, time: scene.time.now });
+      if (this.history.length > 60) this.history.shift();
+    }
+  }
+
+  pickStep(scene) {
+    if (this.kind === 'ice') return this._icePickStep(scene);
+    return undefined; // undefined = use random walk
+  }
+
+  onHit(scene) {
+    this.hitCount++;
+    const defeated = this.hitCount >= this.hp;
+    const hitsLeft = this.hp - this.hitCount;
+    return { defeated, hitsLeft };
+  }
+
+  onDefeat(scene) {
+    switch (this.kind) {
+      case 'ice':    this._clearFreezeOrbs(scene); break;
+      case 'bomb':   this._clearMines(scene); break;
+      case 'mirror': this._clearClone(scene); break;
+    }
+  }
+
+  destroy(scene) {
+    this.mines.forEach(m => {
+      if (m.sprite) { scene.tweens.killTweensOf(m.sprite); m.sprite.destroy(); }
+    });
+    this.freezeOrbs.forEach(o => {
+      if (o.sprite) { scene.tweens.killTweensOf(o.sprite); o.sprite.destroy(); }
+    });
+    if (this.clone && this.clone.sprite) {
+      scene.tweens.killTweensOf(this.clone.sprite);
+      this.clone.sprite.destroy();
+    }
+    this.mines = [];
+    this.freezeOrbs = [];
+    this.clone = null;
+  }
+
+  // ── Ice ──────────────────────────────────────────────────────────────
+
+  _spawnFreezeOrbs(scene) {
+    const CFG = scene.CFG;
+    const corners = [
+      { col: 0, row: 0 },
+      { col: CFG.GRID_COLS - 1, row: 0 },
+      { col: 0, row: CFG.GRID_ROWS - 1 },
+      { col: CFG.GRID_COLS - 1, row: CFG.GRID_ROWS - 1 },
+    ];
+    corners.forEach(c => {
+      const w = scene._cellToWorld(c);
+      const sprite = scene.add.image(w.x, w.y, 'freeze-orb').setScale(0.7).setAlpha(0);
+      scene.foodLayer.add(sprite);
+      scene.tweens.add({ targets: sprite, alpha: 0.9, duration: 300 });
+      this.freezeOrbs.push({ col: c.col, row: c.row, sprite });
+    });
+  }
+
+  _icePickStep(scene) {
+    const CFG = scene.CFG;
+    const head = scene.snake.head();
+    const f = scene.food;
+    if (!f) return undefined;
+
+    const manhattan = Math.abs(f.col - head.col) + Math.abs(f.row - head.row);
+    if (manhattan > CFG.ICE_EVADE_RADIUS) return undefined;
+
+    const dirs = [{ c: 1, r: 0 }, { c: -1, r: 0 }, { c: 0, r: 1 }, { c: 0, r: -1 }];
+    let best = null, bestDist = -1;
+    for (const d of dirs) {
+      const nc = f.col + d.c;
+      const nr = f.row + d.r;
+      if (nc < 0 || nc >= CFG.GRID_COLS || nr < 0 || nr >= CFG.GRID_ROWS) continue;
+      if (scene.snake.occupies(nc, nr)) continue;
+      if (scene.obstacles.has(nc, nr)) continue;
+      const dist = Math.abs(nc - head.col) + Math.abs(nr - head.row);
+      if (dist > bestDist) { bestDist = dist; best = { nc, nr }; }
+    }
+    if (best) return best;
+
+    scene._teleportBoss();
+    return null; // null = teleported, skip random walk
+  }
+
+  _clearFreezeOrbs(scene) {
+    this.freezeOrbs.forEach(o => {
+      scene.tweens.killTweensOf(o.sprite);
+      scene.tweens.add({
+        targets: o.sprite, alpha: 0, scale: 0.1, duration: 300,
+        onComplete: () => o.sprite.destroy(),
+      });
+    });
+    this.freezeOrbs = [];
+  }
+
+  // ── Mirror ───────────────────────────────────────────────────────────
+
+  _spawnClone(scene, cell) {
+    const w = scene._cellToWorld(cell);
+    const sprite = scene.add.image(w.x, w.y, 'boss-mirror').setScale(0.65).setAlpha(0);
+    scene.foodLayer.add(sprite);
+    scene.tweens.add({ targets: sprite, alpha: 0.8, duration: 200 });
+    this.clone = { col: cell.col, row: cell.row, sprite };
+    this.history = [];
+  }
+
+  _mirrorTick(scene) {
+    if (!this.clone) return;
+    const LAG = scene.CFG.MIRROR_LAG_MS;
+    const now = scene.time.now;
+    for (let i = 0; i < this.history.length; i++) {
+      if (this.history[i].time <= now - LAG) {
+        const target = this.history[i];
+        const w = scene._cellToWorld(target);
+        scene.tweens.add({
+          targets: this.clone.sprite,
+          x: w.x, y: w.y,
+          duration: 140, ease: 'Sine.easeInOut',
+        });
+        this.clone.col = target.col;
+        this.clone.row = target.row;
+        this.history.splice(0, i + 1);
+        break;
+      }
+    }
+  }
+
+  rebornClone(scene, bossCell) {
+    if (this.clone && this.clone.sprite) {
+      const old = this.clone.sprite;
+      scene.tweens.killTweensOf(old);
+      scene.tweens.add({
+        targets: old, alpha: 0, scale: 0.1, duration: 200,
+        onComplete: () => old.destroy(),
+      });
+      this.clone = null;
+    }
+    this.history = [];
+    this._spawnClone(scene, bossCell);
+  }
+
+  _clearClone(scene) {
+    if (!this.clone) return;
+    const sprite = this.clone.sprite;
+    scene.tweens.killTweensOf(sprite);
+    scene.tweens.add({
+      targets: sprite, alpha: 0, scale: 0.1, duration: 280,
+      onComplete: () => sprite.destroy(),
+    });
+    this.clone = null;
+  }
+
+  // ── Bomb ─────────────────────────────────────────────────────────────
+
+  _bombTick(scene) {
+    const CFG = scene.CFG;
+    this.dropCounter++;
+    if (this.dropCounter < CFG.BOMB_DROP_TICKS || !this.lastBossCell) return;
+    this.dropCounter = 0;
+
+    const cell = this.lastBossCell;
+    if (this.mines.some(m => m.col === cell.col && m.row === cell.row)) return;
+    if (scene.snake.occupies(cell.col, cell.row)) return;
+    if (scene.food && scene.food.col === cell.col && scene.food.row === cell.row) return;
+
+    const w = scene._cellToWorld(cell);
+    const sprite = scene.add.image(w.x, w.y, 'mine').setScale(0.65).setAlpha(0);
+    sprite.setDepth(13);
+    scene.foodLayer.add(sprite);
+    scene.tweens.add({ targets: sprite, alpha: 1, duration: 200 });
+    this.mines.push({ col: cell.col, row: cell.row, sprite });
+  }
+
+  _clearMines(scene) {
+    this.mines.forEach(m => {
+      scene.tweens.killTweensOf(m.sprite);
+      scene.tweens.add({
+        targets: m.sprite, alpha: 0, scale: 0.1, duration: 300,
+        onComplete: () => m.sprite.destroy(),
+      });
+    });
+    this.mines = [];
+  }
+
+  // ── Phantom ──────────────────────────────────────────────────────────
+
+  _phantomTick(scene) {
+    const now = scene.time.now;
+    const CYCLE = 1500;
+    const phase = Math.floor(now / CYCLE) % 2;
+    const f = scene.food;
+
+    if (phase === 0 && this.invisPhase !== 'visible') {
+      this.invisPhase = 'visible';
+      if (f && f.sprite) {
+        scene.tweens.add({ targets: f.sprite, alpha: 1, duration: 220 });
+      }
+    } else if (phase === 1 && this.invisPhase !== 'hidden') {
+      this.invisPhase = 'hidden';
+      if (f && f.sprite) {
+        scene.tweens.add({ targets: f.sprite, alpha: 0.05, duration: 220 });
+      }
+    }
+
+    // arena tint flicker
+    if (scene.arenaTint) {
+      const flicker = 0.18 + 0.1 * (Math.sin(now * 0.004) * 0.5 + 0.5);
+      scene.arenaTint.setAlpha(flicker);
+    }
+
+    // grey particle trail when invisible
+    if (this.invisPhase === 'hidden' && f && Math.random() < 0.28) {
+      const w = scene._cellToWorld(f);
+      scene.trailEmitter.emitParticleAt(
+        w.x + scene.CFG.BOARD_X,
+        w.y + scene.CFG.BOARD_Y, 1
+      );
+    }
+  }
+};
+
+// ── BossSelector ──────────────────────────────────────────────────────
+
+window.BossSelector = {
+  last: null,
+  _keys: Object.keys(window.BOSS_TYPES),
+
+  pick(rng) {
+    const available = this._keys.filter(k => k !== this.last);
+    const key = available[Math.floor(rng() * available.length)];
+    this.last = key;
+    return key;
+  },
+
+  reset() {
+    this.last = null;
+  },
+};
