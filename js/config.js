@@ -43,17 +43,24 @@ window.CONFIG = (() => {
     // gameplay
     COMBO_WINDOW_MS: 2500,
     COMBO_MAX: 4,
-    POWERUP_CHANCE: 0.12,
-    BOSS_FOOD_EVERY: 10,
+    POWERUP_CHANCE: 0.14,
+    BOSS_FOOD_EVERY: 6,
     OBSTACLE_INTERVAL_MS: 30000,
     DAILY_OBSTACLE_INTERVAL_MS: 45000,
 
+    // boss
+    BOSS_HP: 3,
+    BOSS_MOVE_TICKS: 3,
+    BOSS_CATCH_SPEED_BOOST: 4,
+
     // power-up durations
-    GHOST_MS: 4000,
-    SLOWMO_MS: 5000,
-    SLOWMO_FACTOR: 1.8,
+    GHOST_MS: 5000,
+    SLOWMO_MS: 6000,
+    SLOWMO_FACTOR: 1.2,
     MAGNET_FOODS: 3,
     MAGNET_RANGE: 4,
+    MAGNET_LERP: 0.18,
+    POWERUP_EXPIRE_MS: 8000,
 
     // points
     POINTS_APPLE: 10,

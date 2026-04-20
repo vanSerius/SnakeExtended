@@ -109,19 +109,27 @@ window.HUDScene = class extends Phaser.Scene {
   }
 
   _makePuIcon(x, y, tex, color, name) {
+    const colorNum = Phaser.Display.Color.HexStringToColor(color).color;
     const c = this.add.container(x, y);
-    const bg = this.add.rectangle(0, 0, 60, 60, 0x0d1324, 0.5);
-    bg.setStrokeStyle(1, Phaser.Display.Color.HexStringToColor(color).color, 0.4);
-    const icon = this.add.image(0, -4, tex).setScale(0.55);
-    const label = this.add.text(0, 20, name, {
+
+    // Dark background
+    const bg = this.add.rectangle(0, 0, 60, 60, 0x0d1324, 0.85);
+    bg.setStrokeStyle(1.5, colorNum, 0.55);
+
+    // Battery fill: anchored at bottom, scaleY drains top-down as time runs out
+    const batteryFill = this.add.rectangle(0, 28, 54, 52, colorNum, 0.32);
+    batteryFill.setOrigin(0.5, 1); // anchor at bottom so top disappears first
+
+    const icon = this.add.image(0, -5, tex).setScale(0.55);
+    const label = this.add.text(0, 22, name, {
       fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#94a3b8',
     }).setOrigin(0.5);
     const badge = this.add.text(22, -22, '', {
       fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '14px', color: '#fbbf24', fontStyle: 'bold',
     }).setOrigin(0.5);
-    c.add([bg, icon, label, badge]);
-    c.setAlpha(0.3);
-    return { container: c, icon, label, badge, bg, color };
+
+    c.add([bg, batteryFill, icon, label, badge]);
+    return { container: c, icon, label, badge, bg, batteryFill, colorNum, color };
   }
 
   _setPuIcon(id, progress, active, count = null) {
@@ -129,12 +137,22 @@ window.HUDScene = class extends Phaser.Scene {
     if (!ic) return;
     if (active) {
       ic.container.setAlpha(1);
+      ic.batteryFill.scaleY = Math.max(0, progress);
+      ic.batteryFill.setAlpha(0.38);
+      ic.icon.setAlpha(1);
+      ic.icon.clearTint();
       ic.icon.setScale(0.55 + Math.sin(this.time.now * 0.008) * 0.03);
+      ic.label.setAlpha(1);
       if (count !== null) ic.badge.setText(count > 0 ? `${count}` : '');
       else ic.badge.setText('');
     } else {
-      ic.container.setAlpha(0.3);
+      ic.container.setAlpha(1);
+      ic.batteryFill.scaleY = 0;
+      ic.batteryFill.setAlpha(0);
+      ic.icon.setAlpha(0.28);
+      ic.icon.setTint(0x555555);
       ic.icon.setScale(0.55);
+      ic.label.setAlpha(0.35);
       ic.badge.setText('');
     }
   }
