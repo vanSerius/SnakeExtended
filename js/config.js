@@ -53,13 +53,11 @@ window.CONFIG = (() => {
     BOSS_MOVE_TICKS: 3,
     BOSS_CATCH_SPEED_BOOST: 4,
 
-    // power-up durations
+    // power-up durations / values
     GHOST_MS: 5000,
     SLOWMO_MS: 6000,
     SLOWMO_FACTOR: 1.2,
-    MAGNET_FOODS: 3,
-    MAGNET_RANGE: 4,
-    MAGNET_LERP: 0.18,
+    SHRINK_AMOUNT: 4,
     POWERUP_EXPIRE_MS: 8000,
 
     // points
@@ -82,7 +80,8 @@ window.CONFIG = (() => {
       bossGlow:     0xfde68a,
       ghost:        0x22d3ee,
       slowmo:       0xa78bfa,
-      magnet:       0xf472b6,
+      shield:       0xfbbf24,
+      shrink:       0xfb923c,
       obstacle:     0x475569,
       obstacleHi:   0x94a3b8,
       text:         0xe2e8f0,
@@ -95,8 +94,8 @@ window.CONFIG = (() => {
       accent:    '#4ade80',
       cyan:      '#22d3ee',
       violet:    '#a78bfa',
-      pink:      '#f472b6',
       gold:      '#fbbf24',
+      orange:    '#fb923c',
       apple:     '#ff5e7c',
       text:      '#e2e8f0',
       textDim:   '#94a3b8',

@@ -1,8 +1,9 @@
-// PowerUps.js - Ghost, Slow-mo, Magnet
+// PowerUps.js - Ghost, Slow-Mo, Shield, Shrink
 window.PowerUpTypes = {
-  GHOST:  { id: 'ghost',  duration: () => window.CONFIG.GHOST_MS,  color: 0x22d3ee, label: 'Ghost' },
-  SLOWMO: { id: 'slowmo', duration: () => window.CONFIG.SLOWMO_MS, color: 0xa78bfa, label: 'Slow-Mo' },
-  MAGNET: { id: 'magnet', duration: () => 0,                        color: 0xf472b6, label: 'Magnet' },
+  GHOST:  { id: 'ghost',  color: 0x22d3ee, label: 'Ghost' },
+  SLOWMO: { id: 'slowmo', color: 0xa78bfa, label: 'Slow-Mo' },
+  SHIELD: { id: 'shield', color: 0xfbbf24, label: 'Shield' },
+  SHRINK: { id: 'shrink', color: 0xfb923c, label: 'Shrink' },
 };
 
 window.PowerUpManager = class {
@@ -10,27 +11,26 @@ window.PowerUpManager = class {
     this.active = {
       ghost: 0,
       slowmo: 0,
-      magnetCharges: 0,
+      shield: false,
     };
   }
 
   apply(type) {
-    if (type.id === 'ghost') this.active.ghost = type.duration();
-    else if (type.id === 'slowmo') this.active.slowmo = type.duration();
-    else if (type.id === 'magnet') this.active.magnetCharges = window.CONFIG.MAGNET_FOODS;
+    if (type.id === 'ghost')  this.active.ghost  = window.CONFIG.GHOST_MS;
+    if (type.id === 'slowmo') this.active.slowmo = window.CONFIG.SLOWMO_MS;
+    if (type.id === 'shield') this.active.shield = true;
+    // shrink is instant — handled directly in Game.js
   }
 
   update(deltaMs) {
-    if (this.active.ghost > 0)  this.active.ghost  = Math.max(0, this.active.ghost - deltaMs);
+    if (this.active.ghost > 0)  this.active.ghost  = Math.max(0, this.active.ghost  - deltaMs);
     if (this.active.slowmo > 0) this.active.slowmo = Math.max(0, this.active.slowmo - deltaMs);
   }
 
   isGhost()  { return this.active.ghost > 0; }
   isSlowmo() { return this.active.slowmo > 0; }
-  hasMagnet() { return this.active.magnetCharges > 0; }
-  consumeMagnet() {
-    if (this.active.magnetCharges > 0) this.active.magnetCharges -= 1;
-  }
+  hasShield() { return this.active.shield; }
+  consumeShield() { this.active.shield = false; }
 
   tickMultiplier() {
     return this.isSlowmo() ? window.CONFIG.SLOWMO_FACTOR : 1;
@@ -38,8 +38,9 @@ window.PowerUpManager = class {
 
   pickRandom(rng) {
     const roll = rng();
-    if (roll < 0.34) return window.PowerUpTypes.GHOST;
-    if (roll < 0.67) return window.PowerUpTypes.SLOWMO;
-    return window.PowerUpTypes.MAGNET;
+    if (roll < 0.28) return window.PowerUpTypes.GHOST;
+    if (roll < 0.56) return window.PowerUpTypes.SLOWMO;
+    if (roll < 0.78) return window.PowerUpTypes.SHIELD;
+    return window.PowerUpTypes.SHRINK;
   }
 };

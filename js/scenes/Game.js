@@ -41,6 +41,7 @@ window.GameScene = class extends Phaser.Scene {
     this.gameOver = false;
     this.paused = false;
     this.bossHitCount = 0;
+    this.shrinkFlashMs = 0; // brief HUD highlight after shrink collected
 
     this.tickMs = CFG.TICK_START_MS;
     this.tickAccum = 0;
@@ -258,9 +259,10 @@ window.GameScene = class extends Phaser.Scene {
   _spawnPowerUpItem() {
     const CFG = this.CFG;
     const powerType = this.powerUps.pickRandom(this.rng);
-    const texKey = powerType.id === 'ghost' ? 'pu-ghost'
+    const texKey = powerType.id === 'ghost'  ? 'pu-ghost'
                  : powerType.id === 'slowmo' ? 'pu-slowmo'
-                 : 'pu-magnet';
+                 : powerType.id === 'shield' ? 'pu-shield'
+                 : 'pu-shrink';
 
     const cell = window.FoodSystem.pick(this.rng, CFG.GRID_COLS, CFG.GRID_ROWS,
       (c, r) => this._isOccupied(c, r));
@@ -302,7 +304,6 @@ window.GameScene = class extends Phaser.Scene {
     const worldX = w.x + CFG.BOARD_X;
     const worldY = w.y + CFG.BOARD_Y;
 
-    this.powerUps.apply(item.powerType);
     window.AudioFX.powerUpSfx();
     window.FX.vibrate(35);
     window.FX.shockwave(this, worldX, worldY, item.powerType.color);
@@ -311,9 +312,49 @@ window.GameScene = class extends Phaser.Scene {
       Phaser.Display.Color.IntegerToColor(item.powerType.color).rgba, 22);
     window.FX.shake(this, 140, 0.008);
 
+    if (item.powerType.id === 'shrink') {
+      this._applyShrink();
+    } else {
+      this.powerUps.apply(item.powerType);
+    }
+
     this.tweens.killTweensOf(item.sprite);
     item.sprite.destroy();
     this.powerUpItems.splice(index, 1);
+  }
+
+  _applyShrink() {
+    const CFG = this.CFG;
+    const toRemove = Math.min(CFG.SHRINK_AMOUNT, Math.max(0, this.snake.cells.length - 3));
+    for (let i = 0; i < toRemove; i++) {
+      this.snake.cells.pop();
+      if (this.snake.prev.length > this.snake.cells.length) this.snake.prev.pop();
+      this.snake.growPending = Math.max(0, this.snake.growPending - 1);
+      if (this.snakeSprites.length > this.snake.cells.length) {
+        const s = this.snakeSprites.pop();
+        this.tweens.killTweensOf(s.body);
+        this.tweens.killTweensOf(s.glow);
+        this.tweens.add({
+          targets: [s.body, s.glow], alpha: 0, scale: 0,
+          duration: 220, ease: 'Power2',
+          onComplete: () => { s.body.destroy(); s.glow.destroy(); },
+        });
+      }
+    }
+    this.shrinkFlashMs = 1200;
+  }
+
+  _shieldAbsorb() {
+    this.powerUps.consumeShield();
+    const head = this.snake.head();
+    const w = this._cellToWorld(head);
+    const wx = w.x + this.CFG.BOARD_X;
+    const wy = w.y + this.CFG.BOARD_Y;
+    window.FX.flash(this, this.CFG.COLORS.shield, 350, 0.45);
+    window.FX.shockwave(this, wx, wy, this.CFG.COLORS.shield);
+    window.FX.floatText(this, wx, wy - 10, 'SHIELD!', '#fbbf24', 28);
+    window.AudioFX.powerUpSfx();
+    window.FX.vibrate([30, 30]);
   }
 
   _updatePowerUpItems(delta) {
@@ -359,6 +400,7 @@ window.GameScene = class extends Phaser.Scene {
     this.tickElapsed += delta;
     this.powerUps.update(delta);
     this._updatePowerUpItems(delta);
+    if (this.shrinkFlashMs > 0) this.shrinkFlashMs = Math.max(0, this.shrinkFlashMs - delta);
     const comboExpired = this.combo.update(delta);
     if (comboExpired) this.hud.events.emit('combo', 1, 0);
 
@@ -382,26 +424,6 @@ window.GameScene = class extends Phaser.Scene {
       );
     }
 
-    // magnet attraction: pull apple toward head
-    if (this.powerUps.hasMagnet() && this.food && this.food.type === 'apple') {
-      const head = this.snake.head();
-      const dx = this.food.col - head.col;
-      const dy = this.food.row - head.row;
-      const dist = Math.abs(dx) + Math.abs(dy);
-      if (dist > 0 && dist <= this.CFG.MAGNET_RANGE + 3) {
-        const hw = this._cellToWorld(head);
-        this.food.sprite.x = Phaser.Math.Linear(this.food.sprite.x, hw.x, this.CFG.MAGNET_LERP);
-        this.food.sprite.y = Phaser.Math.Linear(this.food.sprite.y, hw.y, this.CFG.MAGNET_LERP);
-        if (dist > 1 && this.tickAccum < 20) {
-          const step = { c: Math.sign(dx), r: Math.sign(dy) };
-          if (Math.abs(dx) >= Math.abs(dy) && step.c !== 0) {
-            this.food.col = head.col + step.c;
-          } else if (step.r !== 0) {
-            this.food.row = head.row + step.r;
-          }
-        }
-      }
-    }
   }
 
   _tick() {
@@ -419,24 +441,45 @@ window.GameScene = class extends Phaser.Scene {
       window.FX.shockwave(this, w.x + CFG.BOARD_X, w.y + CFG.BOARD_Y, CFG.COLORS.snakeGlow);
     }
 
+    const shieldUp = this.powerUps.hasShield();
+    let shieldUsed = false;
+
     // wall collision (non-wrap modes)
     if (wrapC === null && this.snake.isOutOfBounds(CFG.GRID_COLS, CFG.GRID_ROWS)) {
-      this._die();
-      return;
+      if (shieldUp) {
+        // Wrap head to opposite side and consume shield
+        const hd = this.snake.cells[0];
+        hd.col = ((hd.col % CFG.GRID_COLS) + CFG.GRID_COLS) % CFG.GRID_COLS;
+        hd.row = ((hd.row % CFG.GRID_ROWS) + CFG.GRID_ROWS) % CFG.GRID_ROWS;
+        shieldUsed = true;
+      } else {
+        this._die();
+        return;
+      }
     }
 
-    // self collision (ghost passes through self)
+    // self collision (ghost or shield passes through)
     if (this.snake.hitsSelf(this.powerUps.isGhost())) {
-      this._die();
-      return;
+      if (shieldUp && !shieldUsed) {
+        shieldUsed = true;
+      } else {
+        this._die();
+        return;
+      }
     }
 
-    // obstacle collision (ghost passes through obstacles)
+    // obstacle collision (ghost or shield passes through)
     const h = this.snake.head();
     if (this.obstacles.has(h.col, h.row) && !this.powerUps.isGhost()) {
-      this._die();
-      return;
+      if (shieldUp && !shieldUsed) {
+        shieldUsed = true;
+      } else {
+        this._die();
+        return;
+      }
     }
+
+    if (shieldUsed) this._shieldAbsorb();
 
     // sprite count sync
     while (this.snakeSprites.length < this.snake.cells.length) {
@@ -486,7 +529,6 @@ window.GameScene = class extends Phaser.Scene {
       window.FX.shockwave(this, worldX, worldY, CFG.COLORS.apple);
       window.FX.floatText(this, worldX, worldY - 10, `+${gained}${mult > 1 ? `  x${mult}` : ''}`,
         mult > 1 ? '#fbbf24' : '#ff9fb3', mult > 1 ? 26 : 20);
-      if (this.powerUps.hasMagnet()) this.powerUps.consumeMagnet();
       const steps = Math.floor(this.applesEaten / CFG.TICK_STEP_EVERY);
       this.tickMs = Math.max(CFG.TICK_MIN_MS, CFG.TICK_START_MS - steps * CFG.TICK_STEP_MS);
     } else if (f.type === 'boss') {

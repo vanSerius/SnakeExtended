@@ -12,9 +12,10 @@ window.PreloadScene = class extends Phaser.Scene {
 
     this._makeGlowOrb('apple-orb',   size, CFG.COLORS.apple,     CFG.COLORS.appleGlow);
     this._makeGlowOrb('boss-orb',    size, CFG.COLORS.boss,      CFG.COLORS.bossGlow);
-    this._makeGlowOrb('pu-ghost',    size, CFG.COLORS.ghost,     0xa5f3fc);
-    this._makeGlowOrb('pu-slowmo',   size, CFG.COLORS.slowmo,    0xddd6fe);
-    this._makeGlowOrb('pu-magnet',   size, CFG.COLORS.magnet,    0xfbcfe8);
+    this._makePuGhost('pu-ghost',   size, CFG.COLORS.ghost);
+    this._makePuSlowmo('pu-slowmo', size, CFG.COLORS.slowmo);
+    this._makePuShield('pu-shield', size, CFG.COLORS.shield);
+    this._makePuShrink('pu-shrink', size, CFG.COLORS.shrink);
 
     this._makeParticle('particle-trail', 24, CFG.COLORS.snake, CFG.COLORS.snakeGlow);
     this._makeParticle('particle-spark', 20, 0xfde68a, 0xfef9c3);
@@ -130,5 +131,200 @@ window.PreloadScene = class extends Phaser.Scene {
     const g = (n >> 8) & 0xff;
     const b = n & 0xff;
     return `rgba(${r},${g},${b},${a})`;
+  }
+
+  // --- Dedicated power-up icons (not orbs) ---
+
+  _puCanvas(size) {
+    const s = size * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = s; canvas.height = s;
+    return { canvas, ctx: canvas.getContext('2d'), s, cx: s / 2, cy: s / 2 };
+  }
+
+  _puGlow(ctx, cx, cy, s, r, g, b) {
+    const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, s * 0.48);
+    grad.addColorStop(0, `rgba(${r},${g},${b},0.55)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, s, s);
+  }
+
+  _makePuGhost(key, size, color) {
+    const { canvas, ctx, s, cx, cy } = this._puCanvas(size);
+    const [r, g, b] = [color >> 16 & 0xff, color >> 8 & 0xff, color & 0xff];
+    this._puGlow(ctx, cx, cy, s, r, g, b);
+
+    const br = s * 0.3;
+    const by = cy - s * 0.04;
+
+    // Ghost silhouette
+    ctx.fillStyle = `rgba(${r},${g},${b},0.95)`;
+    ctx.beginPath();
+    ctx.arc(cx, by - br * 0.05, br, Math.PI, 0, false);
+    const botY = by + br * 0.95;
+    ctx.lineTo(cx + br, botY);
+    // 3 wavy bumps along the bottom (right to left)
+    const scW = (br * 2) / 3;
+    ctx.quadraticCurveTo(cx + br - scW * 0.5, botY + br * 0.38, cx + br - scW, botY);
+    ctx.quadraticCurveTo(cx + br - scW * 1.5, botY + br * 0.38, cx, botY);
+    ctx.quadraticCurveTo(cx - scW * 0.5,      botY + br * 0.38, cx - br + scW, botY);
+    ctx.quadraticCurveTo(cx - br + scW * 0.5, botY + br * 0.38, cx - br, botY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Eyes
+    const ey = by - br * 0.18;
+    ctx.fillStyle = 'rgba(5,15,35,0.92)';
+    ctx.beginPath();
+    ctx.ellipse(cx - br * 0.28, ey, br * 0.14, br * 0.18, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + br * 0.28, ey, br * 0.14, br * 0.18, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.arc(cx - br * 0.22, ey - br * 0.07, br * 0.06, 0, Math.PI * 2);
+    ctx.arc(cx + br * 0.34, ey - br * 0.07, br * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+
+    this.textures.addCanvas(key, canvas);
+  }
+
+  _makePuSlowmo(key, size, color) {
+    const { canvas, ctx, s, cx, cy } = this._puCanvas(size);
+    const [r, g, b] = [color >> 16 & 0xff, color >> 8 & 0xff, color & 0xff];
+    this._puGlow(ctx, cx, cy, s, r, g, b);
+
+    const hw = s * 0.30;   // half-width
+    const hh = s * 0.35;   // half-height
+    const neck = s * 0.055;
+    const barH = s * 0.055;
+
+    ctx.fillStyle = `rgba(${r},${g},${b},0.95)`;
+
+    // Top cap
+    ctx.fillRect(cx - hw - s * 0.04, cy - hh, (hw + s * 0.04) * 2, barH);
+    // Bottom cap
+    ctx.fillRect(cx - hw - s * 0.04, cy + hh - barH, (hw + s * 0.04) * 2, barH);
+
+    // Top glass (triangle)
+    ctx.beginPath();
+    ctx.moveTo(cx - hw, cy - hh + barH);
+    ctx.lineTo(cx + hw, cy - hh + barH);
+    ctx.lineTo(cx + neck, cy - neck);
+    ctx.lineTo(cx - neck, cy - neck);
+    ctx.closePath();
+    ctx.fill();
+
+    // Bottom glass (inverted triangle)
+    ctx.beginPath();
+    ctx.moveTo(cx - neck, cy + neck);
+    ctx.lineTo(cx + neck, cy + neck);
+    ctx.lineTo(cx + hw, cy + hh - barH);
+    ctx.lineTo(cx - hw, cy + hh - barH);
+    ctx.closePath();
+    ctx.fill();
+
+    // Sand in top (light fill, ~60% full)
+    ctx.fillStyle = `rgba(221,214,254,0.72)`;
+    ctx.beginPath();
+    ctx.moveTo(cx - hw * 0.82, cy - hh + barH + s * 0.02);
+    ctx.lineTo(cx + hw * 0.82, cy - hh + barH + s * 0.02);
+    ctx.lineTo(cx + neck * 0.6, cy - neck * 1.4);
+    ctx.lineTo(cx - neck * 0.6, cy - neck * 1.4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Sand pile at bottom
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + hh - barH - s * 0.04, hw * 0.5, s * 0.045, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    this.textures.addCanvas(key, canvas);
+  }
+
+  _makePuShield(key, size, color) {
+    const { canvas, ctx, s, cx, cy } = this._puCanvas(size);
+    const [r, g, b] = [color >> 16 & 0xff, color >> 8 & 0xff, color & 0xff];
+    this._puGlow(ctx, cx, cy - s * 0.04, s, r, g, b);
+
+    const sw = s * 0.32;
+    const topY  = cy - s * 0.36;
+    const midY  = cy + s * 0.06;
+    const botY  = cy + s * 0.38;
+
+    // Shield body
+    ctx.fillStyle = `rgba(${r},${g},${b},0.95)`;
+    ctx.beginPath();
+    ctx.moveTo(cx - sw, topY);
+    ctx.lineTo(cx + sw, topY);
+    ctx.quadraticCurveTo(cx + sw, midY, cx, botY);
+    ctx.quadraticCurveTo(cx - sw, midY, cx - sw, topY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner highlight
+    const iw = sw * 0.68;
+    ctx.fillStyle = `rgba(254,243,199,0.42)`;
+    ctx.beginPath();
+    ctx.moveTo(cx - iw, topY + s * 0.04);
+    ctx.lineTo(cx + iw, topY + s * 0.04);
+    ctx.quadraticCurveTo(cx + iw, midY - s * 0.02, cx, botY - s * 0.09);
+    ctx.quadraticCurveTo(cx - iw, midY - s * 0.02, cx - iw, topY + s * 0.04);
+    ctx.closePath();
+    ctx.fill();
+
+    // Cross emblem
+    const cs = s * 0.055;
+    const crossCY = cy - s * 0.04;
+    ctx.fillStyle = `rgba(${r},${g},${b},0.88)`;
+    ctx.fillRect(cx - cs, crossCY - s * 0.19, cs * 2, s * 0.38);
+    ctx.fillRect(cx - s * 0.14, crossCY - cs, s * 0.28, cs * 2);
+
+    this.textures.addCanvas(key, canvas);
+  }
+
+  _makePuShrink(key, size, color) {
+    const { canvas, ctx, s, cx, cy } = this._puCanvas(size);
+    const [r, g, b] = [color >> 16 & 0xff, color >> 8 & 0xff, color & 0xff];
+    this._puGlow(ctx, cx, cy, s, r, g, b);
+
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.95)`;
+    ctx.fillStyle   = `rgba(${r},${g},${b},0.95)`;
+    ctx.lineWidth   = s * 0.075;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+
+    const outer    = s * 0.35;
+    const inner    = s * 0.13;
+    const headSize = s * 0.13;
+
+    // 4 diagonal inward arrows
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([dx, dy]) => {
+      const fx = cx + dx * outer;
+      const fy = cy + dy * outer;
+      const tx = cx + dx * inner;
+      const ty = cy + dy * inner;
+
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(tx, ty);
+      ctx.stroke();
+
+      const ang = Math.atan2(ty - fy, tx - fx);
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - headSize * Math.cos(ang - 0.52), ty - headSize * Math.sin(ang - 0.52));
+      ctx.lineTo(tx - headSize * Math.cos(ang + 0.52), ty - headSize * Math.sin(ang + 0.52));
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // Central dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+
+    this.textures.addCanvas(key, canvas);
   }
 };

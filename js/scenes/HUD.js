@@ -36,13 +36,14 @@ window.HUDScene = class extends Phaser.Scene {
     this.comboGroup.add([this.comboBarBg, this.comboBar, this.comboText]);
     this.comboGroup.setAlpha(0);
 
-    // power-up indicators (bottom)
+    // power-up indicators (bottom) — 4 icons
     this.puIcons = {};
     const iconY = CFG.DESIGN_HEIGHT - 48;
-    const gap = 90;
-    this.puIcons.ghost  = this._makePuIcon(CX - gap, iconY, 'pu-ghost',  '#22d3ee', 'Ghost');
-    this.puIcons.slowmo = this._makePuIcon(CX,       iconY, 'pu-slowmo', '#a78bfa', 'Slow-Mo');
-    this.puIcons.magnet = this._makePuIcon(CX + gap, iconY, 'pu-magnet', '#f472b6', 'Magnet');
+    const gap = 70;
+    this.puIcons.ghost  = this._makePuIcon(CX - gap * 1.5, iconY, 'pu-ghost',   '#22d3ee', 'Ghost');
+    this.puIcons.slowmo = this._makePuIcon(CX - gap * 0.5, iconY, 'pu-slowmo',  '#a78bfa', 'Slow-Mo');
+    this.puIcons.shield = this._makePuIcon(CX + gap * 0.5, iconY, 'pu-shield',  '#fbbf24', 'Shield');
+    this.puIcons.shrink = this._makePuIcon(CX + gap * 1.5, iconY, 'pu-shrink',  '#fb923c', 'Shrink');
 
     // pause button (top-right)
     this.pauseBtn = this.add.text(CFG.DESIGN_WIDTH - 24, 28, 'II', {
@@ -100,11 +101,14 @@ window.HUDScene = class extends Phaser.Scene {
 
     // powerup timers
     if (this.gameScene.powerUps) {
-      const pu = this.gameScene.powerUps.active;
+      const pu  = this.gameScene.powerUps.active;
+      const gs  = this.gameScene;
       const CFG = window.CONFIG;
-      this._setPuIcon('ghost',  pu.ghost  / CFG.GHOST_MS, pu.ghost > 0);
+      this._setPuIcon('ghost',  pu.ghost  / CFG.GHOST_MS,  pu.ghost  > 0);
       this._setPuIcon('slowmo', pu.slowmo / CFG.SLOWMO_MS, pu.slowmo > 0);
-      this._setPuIcon('magnet', pu.magnetCharges / CFG.MAGNET_FOODS, pu.magnetCharges > 0, pu.magnetCharges);
+      this._setPuIcon('shield', pu.shield ? 1 : 0,         pu.shield);
+      this._setPuIcon('shrink', gs.shrinkFlashMs > 0 ? gs.shrinkFlashMs / 1200 : 0,
+                                gs.shrinkFlashMs > 0);
     }
   }
 
