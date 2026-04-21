@@ -41,6 +41,7 @@ window.GameScene = class extends Phaser.Scene {
     this.gameOver = false;
     this.paused = false;
     this.shrinkFlashMs = 0;
+    this.powerUpSpawnChance = CFG.POWERUP_CHANCE;
     this.boss = null;
     this.arenaTint = null;
     this.arenaBorder = null;
@@ -195,6 +196,7 @@ window.GameScene = class extends Phaser.Scene {
     const CFG = this.CFG;
     const p = Phaser.Math.SmoothStep(progress, 0, 1);
     const ghost = this.powerUps.isGhost();
+    const shield = this.powerUps.hasShield();
     for (let i = 0; i < this.snake.cells.length; i++) {
       const cur = this.snake.cells[i];
       const prev = this.snake.prev[i] || cur;
@@ -206,6 +208,13 @@ window.GameScene = class extends Phaser.Scene {
       s.glow.setPosition(x, y);
       s.body.setAlpha(ghost ? 0.12 : 1);
       s.glow.setAlpha(ghost ? 0.06 : 0.5);
+      if (shield) {
+        s.body.setTint(0xfbbf24);
+        s.glow.setTint(0xfde68a);
+      } else {
+        s.body.clearTint();
+        s.glow.clearTint();
+      }
       if (s.isHead) {
         // orient head by current direction
         const dir = this.snake.dir;
@@ -271,8 +280,13 @@ window.GameScene = class extends Phaser.Scene {
     }
 
     // spawn a separate power-up item alongside (with chance), max 2 on field
-    if (this.powerUpItems.length < 2 && this.rng() < CFG.POWERUP_CHANCE) {
-      this._spawnPowerUpItem();
+    if (this.powerUpItems.length < 2) {
+      if (this.rng() < this.powerUpSpawnChance) {
+        this._spawnPowerUpItem();
+        this.powerUpSpawnChance = CFG.POWERUP_CHANCE;
+      } else {
+        this.powerUpSpawnChance = Math.min(0.98, this.powerUpSpawnChance + 0.02);
+      }
     }
   }
 
