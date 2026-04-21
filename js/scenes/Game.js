@@ -172,7 +172,7 @@ window.GameScene = class extends Phaser.Scene {
     this.paused = !this.paused;
     this.hud.events.emit('paused-state', this.paused);
     if (this.paused) window.AudioFX.stopMusic();
-    else window.AudioFX.startMusic();
+    else this.boss ? window.AudioFX.startBossMusic() : window.AudioFX.startMusic();
   }
 
   _rebuildSnakeSprites() {
@@ -267,6 +267,7 @@ window.GameScene = class extends Phaser.Scene {
     if (type === 'boss') {
       this.boss = new window.BossController(this, bossKind);
       this.boss.onSpawn(this, cell);
+      window.AudioFX.startBossMusic();
     }
 
     // spawn a separate power-up item alongside (with chance), max 2 on field
@@ -537,6 +538,7 @@ window.GameScene = class extends Phaser.Scene {
           this.tweens.killTweensOf(orb.sprite);
           orb.sprite.destroy();
           this.boss.freezeOrbs.splice(i, 1);
+          this.boss.scheduleOrbRespawn(orb.col, orb.row, this.time.now);
           break;
         }
       }
@@ -638,6 +640,7 @@ window.GameScene = class extends Phaser.Scene {
       this.boss.destroy(this);
       this.boss = null;
       this._revertArenaColor();
+      window.AudioFX.startMusic();
 
       this.applesEaten += 1;
       const mult = this.combo.registerEat();

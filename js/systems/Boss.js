@@ -62,6 +62,7 @@ window.BossController = class {
     this.lastBossCell = null;
     this.frozenUntilMs = 0;
     this.moveEveryTick = (kind === 'ice');
+    this.orbRespawnQueue = [];
   }
 
   isFrozen(scene) {
@@ -89,7 +90,6 @@ window.BossController = class {
   onTick(scene) {
     switch (this.kind) {
       case 'ice':     this._iceTick(scene); break;
-      case 'bomb':    this._bombTick(scene); break;
       case 'phantom': this._phantomTick(scene); break;
       case 'mirror':  this._mirrorTick(scene); break;
     }
@@ -100,6 +100,7 @@ window.BossController = class {
       this.history.push({ col: cell.col, row: cell.row, time: scene.time.now });
       if (this.history.length > 60) this.history.shift();
     }
+    if (this.kind === 'bomb') this._bombOnMove(scene, cell);
   }
 
   pickStep(scene) {
@@ -135,6 +136,7 @@ window.BossController = class {
     }
     this.mines = [];
     this.freezeOrbs = [];
+    this.orbRespawnQueue = [];
     this.clone = null;
   }
 
@@ -157,12 +159,35 @@ window.BossController = class {
     });
   }
 
+  scheduleOrbRespawn(col, row, nowMs) {
+    this.orbRespawnQueue.push({ col, row, readyAt: nowMs + 5000 });
+  }
+
+  _spawnSingleFreezeOrb(scene, col, row) {
+    if (this.freezeOrbs.some(o => o.col === col && o.row === row)) return;
+    const w = scene._cellToWorld({ col, row });
+    const sprite = scene.add.image(w.x, w.y, 'freeze-orb').setScale(0.3).setAlpha(0);
+    scene.foodLayer.add(sprite);
+    scene.tweens.add({ targets: sprite, alpha: 0.9, scale: 0.7, duration: 400 });
+    this.freezeOrbs.push({ col, row, sprite });
+  }
+
   _iceTick(scene) {
     const f = scene.food;
     if (!f || !f.sprite) return;
+
+    // process orb respawn queue
+    const now = scene.time.now;
+    for (let i = this.orbRespawnQueue.length - 1; i >= 0; i--) {
+      if (now >= this.orbRespawnQueue[i].readyAt) {
+        const { col, row } = this.orbRespawnQueue.splice(i, 1)[0];
+        this._spawnSingleFreezeOrb(scene, col, row);
+      }
+    }
+
     if (this.isFrozen(scene)) {
       // blue pulse to show boss is catchable
-      const pulse = 0.45 + 0.55 * Math.abs(Math.sin(scene.time.now * 0.008));
+      const pulse = 0.45 + 0.55 * Math.abs(Math.sin(now * 0.008));
       f.sprite.setAlpha(pulse);
       f.sprite.setTint(0x38bdf8);
     } else {
@@ -200,6 +225,7 @@ window.BossController = class {
   }
 
   _clearFreezeOrbs(scene) {
+    this.orbRespawnQueue = [];
     this.freezeOrbs.forEach(o => {
       scene.tweens.killTweensOf(o.sprite);
       scene.tweens.add({
@@ -269,13 +295,12 @@ window.BossController = class {
 
   // ── Bomb ─────────────────────────────────────────────────────────────
 
-  _bombTick(scene) {
-    const CFG = scene.CFG;
+  _bombOnMove(scene, cell) {
     this.dropCounter++;
-    if (this.dropCounter < CFG.BOMB_DROP_TICKS || !this.lastBossCell) return;
+    if (this.dropCounter < scene.CFG.BOMB_MOVE_INTERVAL) return;
     this.dropCounter = 0;
+    if (Math.random() >= scene.CFG.BOMB_DROP_CHANCE) return;
 
-    const cell = this.lastBossCell;
     if (this.mines.some(m => m.col === cell.col && m.row === cell.row)) return;
     if (scene.snake.occupies(cell.col, cell.row)) return;
     if (scene.food && scene.food.col === cell.col && scene.food.row === cell.row) return;

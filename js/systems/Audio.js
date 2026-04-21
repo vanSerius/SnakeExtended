@@ -2,7 +2,42 @@
 window.AudioFX = (() => {
   let ctx = null;
   let masterGain = null;
-  let musicNodes = null;
+  let musicIntervalId = null;
+  let musicMode = null; // 'normal' | 'boss' | null
+
+  // note frequencies
+  const F = {
+    A2:110, C3:130.81, E3:164.81, G3:196,
+    A3:220, C4:261.63, D4:293.66, E4:329.63, G4:392,
+    A4:440, B4:493.88, C5:523.25, D5:587.33, E5:659.25,
+    _:0,
+  };
+
+  // [freq, beats] — beats are beat-fractions (0.5 = half-beat, 1.0 = full beat)
+  // multiplied by (60 / bpm) to get seconds
+  const MELODY_NORMAL = [
+    [F.C5, 0.5], [F.B4, 0.5], [F.A4, 0.5], [F.G4, 0.5],
+    [F.A4, 0.5], [F.G4, 0.5], [F.E4, 1.0],
+    [F.G4, 0.5], [F.A4, 0.5], [F.C5, 0.5], [F.A4, 0.5],
+    [F.G4, 1.0], [F.E4, 0.5], [F.D4, 0.5],
+    [F.E4, 1.0], [F._, 0.5],
+  ];
+  const BASS_NORMAL = [
+    [F.A2, 2.0], [F.C3, 2.0], [F.E3, 2.0], [F.A2, 2.0],
+  ];
+
+  const MELODY_BOSS = [
+    [F.A4, 0.25], [F.C5, 0.25], [F.D5, 0.5],
+    [F.C5, 0.25], [F.A4, 0.25], [F.C5, 0.5],
+    [F.A4, 0.25], [F.G4, 0.25], [F.A4, 0.5],
+    [F.E4, 0.25], [F.G4, 0.25], [F.A4, 0.5],
+    [F.C5, 0.5],  [F.D5, 0.25], [F.C5, 0.25],
+    [F.A4, 0.5],  [F._, 0.5],
+  ];
+  const BASS_BOSS = [
+    [F.A2, 1.0], [F.C3, 0.5], [F.E3, 0.5],
+    [F.A2, 1.0], [F.G3, 1.0],
+  ];
 
   function init() {
     if (ctx) return;
@@ -77,7 +112,6 @@ window.AudioFX = (() => {
   function deathSfx() {
     if (!enabled()) return;
     sweep(420, 70, 0.55, 'sawtooth', 0.28);
-    // noise burst
     const now = ctx.currentTime;
     const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -100,35 +134,75 @@ window.AudioFX = (() => {
     beep(340, 0.03, 'square', 0.05);
   }
 
-  function startMusic() {
+  function _scheduleNote(freq, startT, dur, type, gain) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, startT);
+    g.gain.linearRampToValueAtTime(gain, startT + 0.008);
+    g.gain.setValueAtTime(gain, startT + dur * 0.65);
+    g.gain.linearRampToValueAtTime(0.0001, startT + dur * 0.9);
+    osc.connect(g).connect(masterGain);
+    osc.start(startT);
+    osc.stop(startT + dur);
+  }
+
+  function _playChiptune(melody, bassLine, bpm) {
     if (!ctx) return;
     if (!window.Storage.getSetting('music')) return;
-    if (musicNodes) return;
-    const o1 = ctx.createOscillator();
-    const o2 = ctx.createOscillator();
-    const filter = ctx.createBiquadFilter();
-    const g = ctx.createGain();
-    o1.type = 'sine'; o1.frequency.value = 110;
-    o2.type = 'sine'; o2.frequency.value = 110.6;
-    filter.type = 'lowpass';
-    filter.frequency.value = 600;
-    g.gain.value = 0.05;
-    o1.connect(filter); o2.connect(filter);
-    filter.connect(g).connect(masterGain);
-    o1.start(); o2.start();
-    musicNodes = { o1, o2, g, filter };
+    stopMusic();
+
+    const beat = 60 / bpm;
+    let mNext = ctx.currentTime + 0.05;
+    let bNext = ctx.currentTime + 0.05;
+    let mIdx = 0;
+    let bIdx = 0;
+
+    function schedule() {
+      const horizon = ctx.currentTime + 0.15;
+      while (mNext < horizon) {
+        const [freq, beats] = melody[mIdx % melody.length];
+        const dur = beats * beat;
+        if (freq > 0) _scheduleNote(freq, mNext, dur, 'square', 0.042);
+        mNext += dur;
+        mIdx++;
+      }
+      while (bNext < horizon) {
+        const [freq, beats] = bassLine[bIdx % bassLine.length];
+        const dur = beats * beat;
+        if (freq > 0) _scheduleNote(freq, bNext, dur, 'triangle', 0.024);
+        bNext += dur;
+        bIdx++;
+      }
+    }
+
+    schedule();
+    musicIntervalId = setInterval(schedule, 25);
+  }
+
+  function startMusic() {
+    if (musicMode === 'normal') return;
+    _playChiptune(MELODY_NORMAL, BASS_NORMAL, 118);
+    musicMode = 'normal';
+  }
+
+  function startBossMusic() {
+    if (musicMode === 'boss') return;
+    _playChiptune(MELODY_BOSS, BASS_BOSS, 158);
+    musicMode = 'boss';
   }
 
   function stopMusic() {
-    if (!musicNodes) return;
-    try {
-      musicNodes.o1.stop();
-      musicNodes.o2.stop();
-    } catch (e) {}
-    musicNodes = null;
+    if (musicIntervalId !== null) {
+      clearInterval(musicIntervalId);
+      musicIntervalId = null;
+    }
+    musicMode = null;
   }
 
   return {
-    init, eatSfx, powerUpSfx, bossSfx, deathSfx, clickSfx, turnSfx, startMusic, stopMusic,
+    init, eatSfx, powerUpSfx, bossSfx, deathSfx, clickSfx, turnSfx,
+    startMusic, startBossMusic, stopMusic,
   };
 })();
