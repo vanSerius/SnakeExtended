@@ -72,6 +72,7 @@ window.BossController = class {
     this.moveEveryTick = (kind === 'ice');
     this.orbRespawnQueue = [];
     this.subBlobs = [];
+    this.blobMoveCounter = 0;
   }
 
   isFrozen(scene) {
@@ -120,6 +121,7 @@ window.BossController = class {
       case 'ice':     this._iceTick(scene); break;
       case 'phantom': this._phantomTick(scene); break;
       case 'mirror':  this._mirrorTick(scene); break;
+      case 'blob':    this._blobTick(scene); break;
     }
   }
 
@@ -401,6 +403,50 @@ window.BossController = class {
   }
 
   // ── Blob ─────────────────────────────────────────────────────────────
+
+  _blobTick(scene) {
+    if (this.subBlobs.length === 0) return;
+    this.blobMoveCounter++;
+    if (this.blobMoveCounter < 2) return;
+    this.blobMoveCounter = 0;
+    for (const blob of this.subBlobs) {
+      this._moveSingleBlob(scene, blob);
+    }
+  }
+
+  _moveSingleBlob(scene, blob) {
+    const CFG = scene.CFG;
+    const head = scene.snake.head();
+    const dirs = [{ c: 1, r: 0 }, { c: -1, r: 0 }, { c: 0, r: 1 }, { c: 0, r: -1 }];
+
+    // 60% chase snake head, 40% random roam
+    if (scene.rng() < 0.4) {
+      for (let i = dirs.length - 1; i > 0; i--) {
+        const j = Math.floor(scene.rng() * (i + 1));
+        [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+      }
+    } else {
+      dirs.sort((a, b) => {
+        const da = Math.abs((blob.col + a.c) - head.col) + Math.abs((blob.row + a.r) - head.row);
+        const db = Math.abs((blob.col + b.c) - head.col) + Math.abs((blob.row + b.r) - head.row);
+        return da - db;
+      });
+    }
+
+    for (const d of dirs) {
+      const nc = blob.col + d.c;
+      const nr = blob.row + d.r;
+      if (nc < 0 || nc >= CFG.GRID_COLS || nr < 0 || nr >= CFG.GRID_ROWS) continue;
+      if (scene.snake.occupies(nc, nr)) continue;
+      if (scene.obstacles.has(nc, nr)) continue;
+      if (this.subBlobs.some(b => b !== blob && b.col === nc && b.row === nr)) continue;
+      blob.col = nc;
+      blob.row = nr;
+      const w = scene._cellToWorld({ col: nc, row: nr });
+      scene.tweens.add({ targets: blob.sprite, x: w.x, y: w.y, duration: 160, ease: 'Sine.easeInOut' });
+      break;
+    }
+  }
 
   _blobScale(tier) {
     return tier === 2 ? 1.0 : 0.55;

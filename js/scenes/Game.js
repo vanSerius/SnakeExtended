@@ -620,9 +620,12 @@ window.GameScene = class extends Phaser.Scene {
       }
     }
 
-    // boss onTick + movement
-    if (this.food && this.food.type === 'boss' && this.boss) {
+    // boss onTick (blob runs even after mega-blob eaten, to move sub-blobs)
+    if (this.boss && (this.boss.kind === 'blob' || (this.food && this.food.type === 'boss'))) {
       this.boss.onTick(this);
+    }
+    // boss movement (only while boss food exists on the board)
+    if (this.food && this.food.type === 'boss' && this.boss) {
       this.bossMoveCounter++;
       const moveTicks = this.boss.moveEveryTick ? 1 : CFG.BOSS_MOVE_TICKS;
       if (this.bossMoveCounter >= moveTicks) {
