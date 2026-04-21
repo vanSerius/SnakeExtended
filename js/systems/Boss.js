@@ -41,6 +41,14 @@ window.BOSS_TYPES = {
     textureKey: 'boss-phantom',
     label: 'PHANTOM',
   },
+  blob: {
+    key: 'blob',
+    hp: 1,
+    arenaColor: 0xd4a853,
+    arenaHex: '#d4a853',
+    textureKey: 'boss-blob',
+    label: 'BLOB',
+  },
 };
 
 // ── BossController ────────────────────────────────────────────────────
@@ -63,6 +71,7 @@ window.BossController = class {
     this.frozenUntilMs = 0;
     this.moveEveryTick = (kind === 'ice');
     this.orbRespawnQueue = [];
+    this.subBlobs = [];
   }
 
   isFrozen(scene) {
@@ -84,6 +93,7 @@ window.BossController = class {
     switch (this.kind) {
       case 'ice':    this._spawnFreezeOrbs(scene); break;
       case 'mirror': this._spawnClone(scene, cell); break;
+      case 'blob':   this._blobOnSpawn(scene); break;
     }
   }
 
@@ -120,6 +130,7 @@ window.BossController = class {
       case 'ice':    this._clearFreezeOrbs(scene); break;
       case 'bomb':   this._clearMines(scene); break;
       case 'mirror': this._clearClone(scene); break;
+      case 'blob':   this._clearSubBlobs(scene); break;
     }
   }
 
@@ -137,6 +148,8 @@ window.BossController = class {
     this.mines = [];
     this.freezeOrbs = [];
     this.orbRespawnQueue = [];
+    this.subBlobs.forEach(b => { if (b.sprite) { scene.tweens.killTweensOf(b.sprite); b.sprite.destroy(); } });
+    this.subBlobs = [];
     this.clone = null;
   }
 
@@ -200,33 +213,37 @@ window.BossController = class {
     // frozen: stay still so the snake can catch it
     if (this.isFrozen(scene)) return null;
 
+    const CFG = scene.CFG;
     const head = scene.snake.head();
     const f = scene.food;
     if (!f) return undefined;
 
-    // when the snake is far away, do a normal random walk so the boss
-    // roams the whole board without gravitating to corners
-    const dist = Math.abs(f.col - head.col) + Math.abs(f.row - head.row);
-    if (dist > 6) return undefined;
-
-    // snake is close: flee — deterministically pick the cell farthest from head
-    const CFG = scene.CFG;
     const dirs = [{ c: 1, r: 0 }, { c: -1, r: 0 }, { c: 0, r: 1 }, { c: 0, r: -1 }];
-    let best = null, bestDist = -1;
+    const candidates = [];
     for (const d of dirs) {
       const nc = f.col + d.c;
       const nr = f.row + d.r;
       if (nc < 0 || nc >= CFG.GRID_COLS || nr < 0 || nr >= CFG.GRID_ROWS) continue;
       if (scene.snake.occupies(nc, nr)) continue;
       if (scene.obstacles.has(nc, nr)) continue;
-      const newDist = Math.abs(nc - head.col) + Math.abs(nr - head.row);
-      if (newDist > bestDist) { bestDist = newDist; best = { nc, nr }; }
+      const minOrbDist = this.freezeOrbs.reduce((min, o) =>
+        Math.min(min, Math.abs(nc - o.col) + Math.abs(nr - o.row)), Infinity);
+      candidates.push({ nc, nr, minOrbDist, distFromHead: Math.abs(nc - head.col) + Math.abs(nr - head.row) });
     }
-    if (best) return best;
 
-    // cornered: teleport
-    scene._teleportBoss();
-    return null;
+    if (candidates.length === 0) { scene._teleportBoss(); return null; }
+
+    // hard rule: stay ≥4 cells from any orb; fall back only if truly cornered
+    const safe = candidates.filter(c => c.minOrbDist >= 4);
+    const pool = safe.length > 0 ? safe : candidates;
+
+    // when snake is close, flee deterministically; otherwise random roam
+    const dist = Math.abs(f.col - head.col) + Math.abs(f.row - head.row);
+    if (dist <= 6) {
+      pool.sort((a, b) => b.distFromHead - a.distFromHead);
+      return pool[0];
+    }
+    return pool[Math.floor(scene.rng() * pool.length)];
   }
 
   _clearFreezeOrbs(scene) {
@@ -363,6 +380,84 @@ window.BossController = class {
         w.y + scene.CFG.BOARD_Y, 1
       );
     }
+  }
+
+  // ── Blob ─────────────────────────────────────────────────────────────
+
+  _blobScale(tier) {
+    return tier === 2 ? 1.0 : 0.55;
+  }
+
+  _blobOnSpawn(scene) {
+    const f = scene.food;
+    if (!f || !f.sprite) return;
+    scene.tweens.killTweensOf(f.sprite);
+    f.sprite.setScale(1.8);
+    scene.tweens.add({
+      targets: f.sprite,
+      scale: { from: 1.6, to: 2.0 },
+      duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+  }
+
+  spawnSplitBlobs(scene, pos, tier) {
+    const scale = this._blobScale(tier);
+    const dirs = [
+      { dc: -1, dr: 0 }, { dc: 1, dr: 0 },
+      { dc: 0, dr: -1 }, { dc: 0, dr: 1 },
+      { dc: -1, dr: -1 }, { dc: 1, dr: 1 },
+      { dc: 0, dr: 0 },
+    ];
+    let spawned = 0;
+    for (const d of dirs) {
+      if (spawned >= 2) break;
+      const col = Math.max(0, Math.min(scene.CFG.GRID_COLS - 1, pos.col + d.dc));
+      const row = Math.max(0, Math.min(scene.CFG.GRID_ROWS - 1, pos.row + d.dr));
+      if (scene.snake.occupies(col, row)) continue;
+      if (scene.obstacles.has(col, row)) continue;
+      if (this.subBlobs.some(b => b.col === col && b.row === row)) continue;
+      const w = scene._cellToWorld({ col, row });
+      const sprite = scene.add.image(w.x, w.y, 'boss-blob').setScale(0.2).setAlpha(0);
+      scene.foodLayer.add(sprite);
+      scene.tweens.add({
+        targets: sprite, alpha: 1, scale,
+        duration: 280,
+        onComplete: () => {
+          scene.tweens.killTweensOf(sprite);
+          scene.tweens.add({
+            targets: sprite,
+            scale: { from: scale * 0.88, to: scale * 1.12 },
+            duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+          });
+        },
+      });
+      this.subBlobs.push({ col, row, tier, sprite });
+      spawned++;
+    }
+  }
+
+  catchSubBlob(scene, index) {
+    const blob = this.subBlobs[index];
+    const tier = blob.tier;
+    scene.tweens.killTweensOf(blob.sprite);
+    scene.tweens.add({
+      targets: blob.sprite, alpha: 0, scale: blob.sprite.scale * 1.6,
+      duration: 220, onComplete: () => blob.sprite.destroy(),
+    });
+    this.subBlobs.splice(index, 1);
+    if (tier > 1) this.spawnSplitBlobs(scene, { col: blob.col, row: blob.row }, tier - 1);
+    return { tier, allDefeated: this.subBlobs.length === 0 };
+  }
+
+  _clearSubBlobs(scene) {
+    this.subBlobs.forEach(b => {
+      scene.tweens.killTweensOf(b.sprite);
+      scene.tweens.add({
+        targets: b.sprite, alpha: 0, scale: b.sprite.scale * 1.5, duration: 250,
+        onComplete: () => b.sprite.destroy(),
+      });
+    });
+    this.subBlobs = [];
   }
 };
 

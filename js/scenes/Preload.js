@@ -76,6 +76,7 @@ window.PreloadScene = class extends Phaser.Scene {
     });
     this._makeMine('mine', size);
     this._makeFreezeOrb('freeze-orb', size);
+    this._makeBlobBoss('boss-blob', size);
 
     this._makeParticle('particle-trail', 24, CFG.COLORS.snake, CFG.COLORS.snakeGlow);
     this._makeParticle('particle-spark', 20, 0xfde68a, 0xfef9c3);
@@ -188,6 +189,48 @@ window.PreloadScene = class extends Phaser.Scene {
     }
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.beginPath(); ctx.arc(cx, cy, outer * 0.09, 0, Math.PI * 2); ctx.fill();
+    this.textures.addCanvas(key, canvas);
+  }
+
+  _makeBlobBoss(key, size) {
+    const s = size * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = s; canvas.height = s;
+    const ctx = canvas.getContext('2d');
+    const cx = s / 2, cy = s / 2, r = s * 0.42;
+
+    // body: warm beige radial gradient
+    const grad = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.25, r * 0.05, cx, cy, r);
+    grad.addColorStop(0,    '#f0d090');
+    grad.addColorStop(0.45, '#d4a853');
+    grad.addColorStop(0.85, '#a07828');
+    grad.addColorStop(1,    '#7a5a18');
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad; ctx.fill();
+
+    // inner glow halo
+    const halo = ctx.createRadialGradient(cx, cy - r * 0.15, 0, cx, cy, r * 0.72);
+    halo.addColorStop(0, 'rgba(255,240,180,0.28)');
+    halo.addColorStop(1, 'rgba(255,240,180,0)');
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = halo; ctx.fill();
+
+    // highlight
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.28, cy - r * 0.32, r * 0.22, r * 0.14, -0.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,220,0.55)'; ctx.fill();
+
+    // eyes
+    [-0.28, 0.28].forEach(ex => {
+      const ex2 = cx + ex * r, ey2 = cy + r * 0.05, er = r * 0.11;
+      ctx.beginPath(); ctx.arc(ex2, ey2, er, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,240,0.92)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(ex2 + er * 0.18, ey2 + er * 0.15, er * 0.55, 0, Math.PI * 2);
+      ctx.fillStyle = '#2c1800'; ctx.fill();
+      ctx.beginPath(); ctx.arc(ex2 + er * 0.05, ey2 - er * 0.18, er * 0.22, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fill();
+    });
+
     this.textures.addCanvas(key, canvas);
   }
 

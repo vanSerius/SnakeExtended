@@ -240,6 +240,7 @@ window.GameScene = class extends Phaser.Scene {
       if (this.boss.mines.some(m => m.col === col && m.row === row)) return true;
       if (this.boss.freezeOrbs.some(o => o.col === col && o.row === row)) return true;
       if (this.boss.clone && this.boss.clone.col === col && this.boss.clone.row === row) return true;
+      if (this.boss.subBlobs.some(b => b.col === col && b.row === row)) return true;
     }
     return false;
   }
@@ -592,6 +593,28 @@ window.GameScene = class extends Phaser.Scene {
       }
     }
 
+    // blob sub-blob collision
+    if (this.boss && this.boss.kind === 'blob' && this.boss.subBlobs.length > 0) {
+      for (let i = this.boss.subBlobs.length - 1; i >= 0; i--) {
+        const blob = this.boss.subBlobs[i];
+        if (h.col === blob.col && h.row === blob.row) {
+          const bw = this._cellToWorld(blob);
+          const bwx = bw.x + CFG.BOARD_X, bwy = bw.y + CFG.BOARD_Y;
+          const result = this.boss.catchSubBlob(this, i);
+          const gained = result.tier === 2 ? 30 : 20;
+          this.score += gained;
+          window.AudioFX.bossSfx();
+          window.FX.shockwave(this, bwx, bwy, this.boss.def.arenaColor);
+          window.FX.floatText(this, bwx, bwy - 10,
+            result.tier > 1 ? `SPLIT! +${gained}` : `+${gained}`,
+            this.boss.def.arenaHex, result.tier > 1 ? 24 : 20);
+          if (result.allDefeated) this._defeatBlobBoss();
+          this.hud.events.emit('score', this.score);
+          break;
+        }
+      }
+    }
+
     // boss onTick + movement
     if (this.food && this.food.type === 'boss' && this.boss) {
       this.boss.onTick(this);
@@ -626,6 +649,8 @@ window.GameScene = class extends Phaser.Scene {
       this.tickMs = Math.max(CFG.TICK_MIN_MS, CFG.TICK_START_MS - steps * CFG.TICK_STEP_MS);
 
     } else if (f.type === 'boss') {
+      if (f.bossKind === 'blob') { this._eatBlobFood(); return; }
+
       const hitResult = this.boss.onHit(this);
 
       if (!hitResult.defeated) {
@@ -689,6 +714,69 @@ window.GameScene = class extends Phaser.Scene {
     this.hud.events.emit('tick-ms', this.tickMs);
 
     this._clearFood();
+    this._spawnFood();
+  }
+
+  _eatBlobFood() {
+    const f = this.food;
+    const CFG = this.CFG;
+    const worldX = f.sprite.x + CFG.BOARD_X;
+    const worldY = f.sprite.y + CFG.BOARD_Y;
+    const pos = { col: f.col, row: f.row };
+    const bossColor = this.boss.def.arenaColor;
+    const bossHex = this.boss.def.arenaHex;
+
+    window.AudioFX.bossSfx();
+    window.FX.shockwave(this, worldX, worldY, bossColor);
+    window.FX.flash(this, bossColor, 200, 0.22);
+    window.FX.vibrate([25, 25, 50]);
+
+    this._clearFood();
+    this.boss.spawnSplitBlobs(this, pos, 2);
+    this.score += 25;
+    window.FX.floatText(this, worldX, worldY - 10, 'SPLIT!', bossHex, 32);
+    this.hud.events.emit('score', this.score);
+  }
+
+  _defeatBlobBoss() {
+    const CFG = this.CFG;
+    const bossColor = this.boss.def.arenaColor;
+    const bossHex = this.boss.def.arenaHex;
+    const cx = CFG.BOARD_X + CFG.BOARD_W / 2;
+    const cy = CFG.BOARD_Y + CFG.BOARD_H / 2;
+    const prevTickMs = this.tickMs;
+
+    this.boss.onDefeat(this);
+    this.boss.destroy(this);
+    this.boss = null;
+    this._revertArenaColor();
+    window.AudioFX.startMusic();
+
+    this.applesEaten += 1;
+    const mult = this.combo.registerEat();
+    const gained = CFG.POINTS_BOSS_BONUS * mult;
+    this.score += gained;
+
+    const newLen = Math.max(3, Math.floor(this.snake.cells.length / 2));
+    const diff = this.snake.cells.length - newLen;
+    if (diff > 0) this._shrinkSnakeBy(diff);
+
+    window.AudioFX.bossSfx();
+    window.FX.vibrate([30, 30, 60]);
+    window.FX.shockwave(this, cx, cy, bossColor);
+    window.FX.flash(this, bossColor, 260, 0.25);
+    window.FX.floatText(this, cx, cy - 10, `+${gained}  BLOB CLEARED!`, bossHex, 30);
+
+    this._spawnObstacle();
+
+    const steps = Math.floor(this.applesEaten / CFG.TICK_STEP_EVERY);
+    this.tickMs = Math.max(CFG.TICK_MIN_MS, CFG.TICK_START_MS - steps * CFG.TICK_STEP_MS);
+    if (this.tickMs < prevTickMs) {
+      window.FX.floatText(this, cx, cy + 40, 'FASTER', '#fbbf24', 52);
+    }
+
+    this.hud.events.emit('score', this.score);
+    this.hud.events.emit('tick-ms', this.tickMs);
     this._spawnFood();
   }
 
