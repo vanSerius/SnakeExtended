@@ -392,7 +392,9 @@ window.BossController = class {
     const f = scene.food;
     if (!f || !f.sprite) return;
     scene.tweens.killTweensOf(f.sprite);
-    f.sprite.setScale(1.8);
+    f.sprite.setAlpha(0);
+    f.sprite.setScale(1.6);
+    scene.tweens.add({ targets: f.sprite, alpha: 1, duration: 200 });
     scene.tweens.add({
       targets: f.sprite,
       scale: { from: 1.6, to: 2.0 },
