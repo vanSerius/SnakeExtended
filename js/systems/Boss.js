@@ -200,28 +200,27 @@ window.BossController = class {
     // frozen: stay still so the snake can catch it
     if (this.isFrozen(scene)) return null;
 
-    const CFG = scene.CFG;
     const head = scene.snake.head();
     const f = scene.food;
     if (!f) return undefined;
 
-    // evade: maximise distance from head, penalise cells near freeze-orb corners
-    // so the boss roams freely instead of camping the crystals
+    // when the snake is far away, do a normal random walk so the boss
+    // roams the whole board without gravitating to corners
+    const dist = Math.abs(f.col - head.col) + Math.abs(f.row - head.row);
+    if (dist > 6) return undefined;
+
+    // snake is close: flee — deterministically pick the cell farthest from head
+    const CFG = scene.CFG;
     const dirs = [{ c: 1, r: 0 }, { c: -1, r: 0 }, { c: 0, r: 1 }, { c: 0, r: -1 }];
-    let best = null, bestScore = -Infinity;
+    let best = null, bestDist = -1;
     for (const d of dirs) {
       const nc = f.col + d.c;
       const nr = f.row + d.r;
       if (nc < 0 || nc >= CFG.GRID_COLS || nr < 0 || nr >= CFG.GRID_ROWS) continue;
       if (scene.snake.occupies(nc, nr)) continue;
       if (scene.obstacles.has(nc, nr)) continue;
-      const distFromHead = Math.abs(nc - head.col) + Math.abs(nr - head.row);
-      const orbPenalty = this.freezeOrbs.reduce((sum, o) => {
-        const d2 = Math.abs(nc - o.col) + Math.abs(nr - o.row);
-        return sum + Math.max(0, 4 - d2);  // penalty within 4 cells of an orb
-      }, 0);
-      const score = distFromHead - orbPenalty * 2;
-      if (score > bestScore) { bestScore = score; best = { nc, nr }; }
+      const newDist = Math.abs(nc - head.col) + Math.abs(nr - head.row);
+      if (newDist > bestDist) { bestDist = newDist; best = { nc, nr }; }
     }
     if (best) return best;
 
