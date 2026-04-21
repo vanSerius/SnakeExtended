@@ -5,38 +5,46 @@ window.AudioFX = (() => {
   let musicIntervalId = null;
   let musicMode = null; // 'normal' | 'boss' | null
 
-  // note frequencies
+  // D major note frequencies — bright, adventure-like (Zelda-ish)
   const F = {
-    A2:110, C3:130.81, E3:164.81, G3:196,
-    A3:220, C4:261.63, D4:293.66, E4:329.63, G4:392,
-    A4:440, B4:493.88, C5:523.25, D5:587.33, E5:659.25,
+    A2:110, C3:130.81, D3:146.83, E3:164.81, G3:196, A3:220,
+    D4:293.66, E4:329.63, Fs4:369.99, G4:392, A4:440, B4:493.88,
+    Cs5:554.37, D5:587.33, E5:659.25,
     _:0,
   };
 
-  // [freq, beats] — beats are beat-fractions (0.5 = half-beat, 1.0 = full beat)
-  // multiplied by (60 / bpm) to get seconds
+  // [freq, beats] — 1.0 = one beat; multiplied by (60/bpm) for duration in seconds
+  // Normal: calm overworld adventure, flowing quarter/half notes, 100 BPM
   const MELODY_NORMAL = [
-    [F.C5, 0.5], [F.B4, 0.5], [F.A4, 0.5], [F.G4, 0.5],
-    [F.A4, 0.5], [F.G4, 0.5], [F.E4, 1.0],
-    [F.G4, 0.5], [F.A4, 0.5], [F.C5, 0.5], [F.A4, 0.5],
-    [F.G4, 1.0], [F.E4, 0.5], [F.D4, 0.5],
-    [F.E4, 1.0], [F._, 0.5],
+    // Phrase A — question, ascending then settling
+    [F.D5,  1.0], [F.B4,  1.0], [F.G4,  2.0],
+    [F.A4,  1.0], [F.B4,  1.0], [F.D5,  2.0],
+    // Phrase B — answer, broader sweep downward
+    [F.E5,  1.0], [F.D5,  1.0], [F.B4,  1.0], [F.A4,  1.0],
+    [F.G4,  2.0], [F.A4,  1.0], [F.G4,  1.0],
+    [F.Fs4, 2.0],
   ];
   const BASS_NORMAL = [
-    [F.A2, 2.0], [F.C3, 2.0], [F.E3, 2.0], [F.A2, 2.0],
+    [F.D3,  4.0],
+    [F.G3,  4.0],
+    [F.A3,  4.0],
+    [F.D3,  6.0],
   ];
 
+  // Boss: tense adventure battle, punchy eighth-note runs, 126 BPM
   const MELODY_BOSS = [
-    [F.A4, 0.25], [F.C5, 0.25], [F.D5, 0.5],
-    [F.C5, 0.25], [F.A4, 0.25], [F.C5, 0.5],
-    [F.A4, 0.25], [F.G4, 0.25], [F.A4, 0.5],
-    [F.E4, 0.25], [F.G4, 0.25], [F.A4, 0.5],
-    [F.C5, 0.5],  [F.D5, 0.25], [F.C5, 0.25],
-    [F.A4, 0.5],  [F._, 0.5],
+    // Quick ascending arpeggio to signal danger
+    [F.D4,  0.5], [F.Fs4, 0.5], [F.A4,  1.0], [F.D5,  1.0],
+    [F.Cs5, 1.0], [F.B4,  1.0], [F.A4,  1.0], [F.G4,  1.0],
+    // Drive forward
+    [F.A4,  0.5], [F.B4,  0.5], [F.D5,  1.0], [F.E5,  1.0],
+    [F.D5,  0.5], [F.Cs5, 0.5], [F.B4,  1.0],
+    [F.A4,  2.0], [F._,   1.0],
   ];
   const BASS_BOSS = [
-    [F.A2, 1.0], [F.C3, 0.5], [F.E3, 0.5],
-    [F.A2, 1.0], [F.G3, 1.0],
+    [F.D3,  2.0], [F.A2,  2.0],
+    [F.C3,  2.0], [F.D3,  2.0],
+    [F.E3,  2.0], [F.A2,  3.0], [F._,  1.0],
   ];
 
   function init() {
@@ -134,18 +142,36 @@ window.AudioFX = (() => {
     beep(340, 0.03, 'square', 0.05);
   }
 
-  function _scheduleNote(freq, startT, dur, type, gain) {
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, startT);
-    g.gain.linearRampToValueAtTime(gain, startT + 0.008);
-    g.gain.setValueAtTime(gain, startT + dur * 0.65);
-    g.gain.linearRampToValueAtTime(0.0001, startT + dur * 0.9);
-    osc.connect(g).connect(masterGain);
-    osc.start(startT);
-    osc.stop(startT + dur);
+  // 16-bit SNES-style note: triangle lead + sine sub-octave for warmth
+  function _scheduleNote(freq, startT, dur, isBass) {
+    if (isBass) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, startT);
+      g.gain.linearRampToValueAtTime(0.032, startT + 0.025);
+      g.gain.setValueAtTime(0.032, startT + dur * 0.72);
+      g.gain.linearRampToValueAtTime(0, startT + dur);
+      osc.connect(g).connect(masterGain);
+      osc.start(startT);
+      osc.stop(startT + dur + 0.05);
+      return;
+    }
+    // lead: triangle (body) + sine sub-octave (warmth)
+    [[freq, 'triangle', 0.048], [freq / 2, 'sine', 0.018]].forEach(([f, type, gv]) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = f;
+      g.gain.setValueAtTime(0, startT);
+      g.gain.linearRampToValueAtTime(gv, startT + 0.015);
+      g.gain.setValueAtTime(gv, startT + dur * 0.68);
+      g.gain.linearRampToValueAtTime(0, startT + dur * 0.94);
+      osc.connect(g).connect(masterGain);
+      osc.start(startT);
+      osc.stop(startT + dur);
+    });
   }
 
   function _playChiptune(melody, bassLine, bpm) {
@@ -160,18 +186,18 @@ window.AudioFX = (() => {
     let bIdx = 0;
 
     function schedule() {
-      const horizon = ctx.currentTime + 0.15;
+      const horizon = ctx.currentTime + 0.18;
       while (mNext < horizon) {
         const [freq, beats] = melody[mIdx % melody.length];
         const dur = beats * beat;
-        if (freq > 0) _scheduleNote(freq, mNext, dur, 'square', 0.042);
+        if (freq > 0) _scheduleNote(freq, mNext, dur, false);
         mNext += dur;
         mIdx++;
       }
       while (bNext < horizon) {
         const [freq, beats] = bassLine[bIdx % bassLine.length];
         const dur = beats * beat;
-        if (freq > 0) _scheduleNote(freq, bNext, dur, 'triangle', 0.024);
+        if (freq > 0) _scheduleNote(freq, bNext, dur, true);
         bNext += dur;
         bIdx++;
       }
@@ -183,13 +209,13 @@ window.AudioFX = (() => {
 
   function startMusic() {
     if (musicMode === 'normal') return;
-    _playChiptune(MELODY_NORMAL, BASS_NORMAL, 118);
+    _playChiptune(MELODY_NORMAL, BASS_NORMAL, 100);
     musicMode = 'normal';
   }
 
   function startBossMusic() {
     if (musicMode === 'boss') return;
-    _playChiptune(MELODY_BOSS, BASS_BOSS, 158);
+    _playChiptune(MELODY_BOSS, BASS_BOSS, 126);
     musicMode = 'boss';
   }
 
