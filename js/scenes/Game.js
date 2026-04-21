@@ -265,12 +265,17 @@ window.GameScene = class extends Phaser.Scene {
     sprite.setScale(0.65);
     this.foodLayer.add(sprite);
 
-    this.tweens.add({
-      targets: sprite, scale: { from: 0.6, to: 0.78 },
-      duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-    });
-    sprite.setAlpha(0);
-    this.tweens.add({ targets: sprite, alpha: 1, duration: 200 });
+    if (type === 'boss') {
+      // boss onSpawn handles all animation (alpha fade-in + scale pulse)
+      sprite.setAlpha(0);
+    } else {
+      this.tweens.add({
+        targets: sprite, scale: { from: 0.6, to: 0.78 },
+        duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      });
+      sprite.setAlpha(0);
+      this.tweens.add({ targets: sprite, alpha: 1, duration: 200 });
+    }
 
     this.food = { col: cell.col, row: cell.row, type, bossKind, sprite };
 

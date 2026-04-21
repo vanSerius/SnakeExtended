@@ -90,10 +90,28 @@ window.BossController = class {
       this.def.arenaHex, 34
     );
 
+    // animate boss food sprite: fade in + scale pulse
+    const f = scene.food;
+    if (f && f.sprite) {
+      if (this.kind === 'blob') {
+        f.sprite.setScale(1.6);
+        scene.tweens.add({ targets: f.sprite, alpha: 1, duration: 200 });
+        scene.tweens.add({
+          targets: f.sprite, scale: { from: 1.6, to: 2.0 },
+          duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
+      } else {
+        scene.tweens.add({ targets: f.sprite, alpha: 1, duration: 200 });
+        scene.tweens.add({
+          targets: f.sprite, scale: { from: 0.6, to: 0.78 },
+          duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
+      }
+    }
+
     switch (this.kind) {
       case 'ice':    this._spawnFreezeOrbs(scene); break;
       case 'mirror': this._spawnClone(scene, cell); break;
-      case 'blob':   this._blobOnSpawn(scene); break;
     }
   }
 
@@ -386,20 +404,6 @@ window.BossController = class {
 
   _blobScale(tier) {
     return tier === 2 ? 1.0 : 0.55;
-  }
-
-  _blobOnSpawn(scene) {
-    const f = scene.food;
-    if (!f || !f.sprite) return;
-    scene.tweens.killTweensOf(f.sprite);
-    f.sprite.setAlpha(0);
-    f.sprite.setScale(1.6);
-    scene.tweens.add({ targets: f.sprite, alpha: 1, duration: 200 });
-    scene.tweens.add({
-      targets: f.sprite,
-      scale: { from: 1.6, to: 2.0 },
-      duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-    });
   }
 
   spawnSplitBlobs(scene, pos, tier) {
