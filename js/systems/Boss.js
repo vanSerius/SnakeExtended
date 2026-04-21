@@ -60,6 +60,12 @@ window.BossController = class {
     this.invisPhase = 'visible';
     this.dropCounter = 0;
     this.lastBossCell = null;
+    this.frozenUntilMs = 0;
+    this.moveEveryTick = (kind === 'ice');
+  }
+
+  isFrozen(scene) {
+    return this.frozenUntilMs > scene.time.now;
   }
 
   onSpawn(scene, cell) {
@@ -82,6 +88,7 @@ window.BossController = class {
 
   onTick(scene) {
     switch (this.kind) {
+      case 'ice':     this._iceTick(scene); break;
       case 'bomb':    this._bombTick(scene); break;
       case 'phantom': this._phantomTick(scene); break;
       case 'mirror':  this._mirrorTick(scene); break;
@@ -150,15 +157,30 @@ window.BossController = class {
     });
   }
 
+  _iceTick(scene) {
+    const f = scene.food;
+    if (!f || !f.sprite) return;
+    if (this.isFrozen(scene)) {
+      // blue pulse to show boss is catchable
+      const pulse = 0.45 + 0.55 * Math.abs(Math.sin(scene.time.now * 0.008));
+      f.sprite.setAlpha(pulse);
+      f.sprite.setTint(0x38bdf8);
+    } else {
+      f.sprite.clearTint();
+      f.sprite.setAlpha(1);
+    }
+  }
+
   _icePickStep(scene) {
+    // frozen: stay still so the snake can catch it
+    if (this.isFrozen(scene)) return null;
+
     const CFG = scene.CFG;
     const head = scene.snake.head();
     const f = scene.food;
     if (!f) return undefined;
 
-    const manhattan = Math.abs(f.col - head.col) + Math.abs(f.row - head.row);
-    if (manhattan > CFG.ICE_EVADE_RADIUS) return undefined;
-
+    // always evade — pick direction that maximises distance from head
     const dirs = [{ c: 1, r: 0 }, { c: -1, r: 0 }, { c: 0, r: 1 }, { c: 0, r: -1 }];
     let best = null, bestDist = -1;
     for (const d of dirs) {
@@ -172,8 +194,9 @@ window.BossController = class {
     }
     if (best) return best;
 
+    // cornered: teleport
     scene._teleportBoss();
-    return null; // null = teleported, skip random walk
+    return null;
   }
 
   _clearFreezeOrbs(scene) {

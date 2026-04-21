@@ -43,7 +43,7 @@ window.GameScene = class extends Phaser.Scene {
     this.shrinkFlashMs = 0;
     this.boss = null;
     this.arenaTint = null;
-    this.freezeUntilMs = 0;
+    this.arenaBorder = null;
     window.BossSelector.reset();
 
     this.tickMs = CFG.TICK_START_MS;
@@ -120,6 +120,7 @@ window.GameScene = class extends Phaser.Scene {
       window.AudioFX.stopMusic();
       if (this.boss) { this.boss.destroy(this); this.boss = null; }
       if (this.arenaTint) { this.arenaTint.destroy(); this.arenaTint = null; }
+      if (this.arenaBorder) { this.arenaBorder.destroy(); this.arenaBorder = null; }
       this.powerUpItems.forEach(item => {
         this.tweens.killTweensOf(item.sprite);
         item.sprite.destroy();
@@ -413,8 +414,7 @@ window.GameScene = class extends Phaser.Scene {
   update(time, delta) {
     if (this.gameOver || this.paused) return;
 
-    const freezeMult = (this.freezeUntilMs > this.time.now) ? 2.5 : 1;
-    const effectiveTick = this.tickMs * this.powerUps.tickMultiplier() * freezeMult;
+    const effectiveTick = this.tickMs * this.powerUps.tickMultiplier();
     this.tickAccum += delta;
     this.tickElapsed += delta;
     this.powerUps.update(delta);
@@ -523,16 +523,17 @@ window.GameScene = class extends Phaser.Scene {
       this._eat();
     }
 
-    // freeze-orb collision
+    // freeze-orb collision — freezes the BOSS, not the snake
     if (this.boss && this.boss.freezeOrbs.length > 0) {
       for (let i = this.boss.freezeOrbs.length - 1; i >= 0; i--) {
         const orb = this.boss.freezeOrbs[i];
         if (h.col === orb.col && h.row === orb.row) {
-          this.freezeUntilMs = this.time.now + 1500;
+          this.boss.frozenUntilMs = this.time.now + 2000;
           const ow = this._cellToWorld(orb);
           window.FX.shockwave(this, ow.x + CFG.BOARD_X, ow.y + CFG.BOARD_Y, 0x38bdf8);
-          window.FX.flash(this, 0x38bdf8, 300, 0.25);
-          window.FX.floatText(this, ow.x + CFG.BOARD_X, ow.y + CFG.BOARD_Y - 20, 'FROZEN!', '#38bdf8', 22);
+          window.FX.flash(this, 0x38bdf8, 300, 0.3);
+          window.FX.floatText(this, ow.x + CFG.BOARD_X, ow.y + CFG.BOARD_Y - 20, 'BOSS FROZEN!', '#38bdf8', 24);
+          window.FX.shake(this, 180, 0.008);
           this.tweens.killTweensOf(orb.sprite);
           orb.sprite.destroy();
           this.boss.freezeOrbs.splice(i, 1);
@@ -579,7 +580,8 @@ window.GameScene = class extends Phaser.Scene {
     if (this.food && this.food.type === 'boss' && this.boss) {
       this.boss.onTick(this);
       this.bossMoveCounter++;
-      if (this.bossMoveCounter >= CFG.BOSS_MOVE_TICKS) {
+      const moveTicks = this.boss.moveEveryTick ? 1 : CFG.BOSS_MOVE_TICKS;
+      if (this.bossMoveCounter >= moveTicks) {
         this.bossMoveCounter = 0;
         this._moveBoss();
       }
@@ -719,6 +721,9 @@ window.GameScene = class extends Phaser.Scene {
     // record current cell for bomb mine drops (set before moving)
     if (this.boss) this.boss.lastBossCell = { col: f.col, row: f.row };
 
+    // frozen boss: don't move
+    if (this.boss && this.boss.isFrozen(this)) return;
+
     // ask boss variant for a custom step
     if (this.boss) {
       const step = this.boss.pickStep(this);
@@ -767,12 +772,17 @@ window.GameScene = class extends Phaser.Scene {
 
   _playArenaColorWave(hex) {
     const CFG = this.CFG;
-    if (this.arenaTint) {
-      this.tweens.killTweensOf(this.arenaTint);
-      this.arenaTint.destroy();
-      this.arenaTint = null;
-    }
+
+    // clear any existing tint + border
+    [this.arenaTint, this.arenaBorder].forEach(obj => {
+      if (obj) { this.tweens.killTweensOf(obj); obj.destroy(); }
+    });
+    this.arenaTint = null;
+    this.arenaBorder = null;
+
     const colorInt = parseInt(hex.replace('#', ''), 16);
+
+    // floor tint — sweeps in from left
     const rect = this.add.rectangle(
       CFG.BOARD_X + CFG.BOARD_W / 2,
       CFG.BOARD_Y + CFG.BOARD_H / 2,
@@ -781,21 +791,26 @@ window.GameScene = class extends Phaser.Scene {
     ).setDepth(6);
     rect.scaleX = 0;
     this.arenaTint = rect;
-    this.tweens.add({
-      targets: rect,
-      scaleX: 1, alpha: 0.22,
-      duration: 400, ease: 'Sine.easeOut',
-    });
+    this.tweens.add({ targets: rect, scaleX: 1, alpha: 0.20, duration: 400, ease: 'Sine.easeOut' });
+
+    // neon border glow — inner sharp ring + outer soft halo
+    const g = this.add.graphics().setDepth(7).setAlpha(0);
+    g.lineStyle(3, colorInt, 1.0);
+    g.strokeRoundedRect(CFG.BOARD_X - 9, CFG.BOARD_Y - 9, CFG.BOARD_W + 18, CFG.BOARD_H + 18, 15);
+    g.lineStyle(10, colorInt, 0.35);
+    g.strokeRoundedRect(CFG.BOARD_X - 16, CFG.BOARD_Y - 16, CFG.BOARD_W + 32, CFG.BOARD_H + 32, 20);
+    g.lineStyle(22, colorInt, 0.12);
+    g.strokeRoundedRect(CFG.BOARD_X - 24, CFG.BOARD_Y - 24, CFG.BOARD_W + 48, CFG.BOARD_H + 48, 26);
+    this.arenaBorder = g;
+    this.tweens.add({ targets: g, alpha: 1, duration: 400, ease: 'Sine.easeOut' });
   }
 
   _revertArenaColor() {
-    if (!this.arenaTint) return;
-    const tint = this.arenaTint;
-    this.arenaTint = null;
-    this.tweens.add({
-      targets: tint, alpha: 0,
-      duration: this.CFG.BOSS_ARENA_REVERT_MS,
-      onComplete: () => tint.destroy(),
+    const ms = this.CFG.BOSS_ARENA_REVERT_MS;
+    [['arenaTint', this.arenaTint], ['arenaBorder', this.arenaBorder]].forEach(([key, obj]) => {
+      if (!obj) return;
+      this[key] = null;
+      this.tweens.add({ targets: obj, alpha: 0, duration: ms, onComplete: () => obj.destroy() });
     });
   }
 
@@ -805,6 +820,7 @@ window.GameScene = class extends Phaser.Scene {
 
     if (this.boss) { this.boss.onDefeat(this); this.boss.destroy(this); this.boss = null; }
     if (this.arenaTint) { this.tweens.killTweensOf(this.arenaTint); this.arenaTint.destroy(); this.arenaTint = null; }
+    if (this.arenaBorder) { this.tweens.killTweensOf(this.arenaBorder); this.arenaBorder.destroy(); this.arenaBorder = null; }
 
     const head = this.snake.head();
     const wpos = this._cellToWorld(head);
