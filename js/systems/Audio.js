@@ -1,9 +1,10 @@
-// Audio.js - Web Audio synthesis, no assets
+// Audio.js - Web Audio synthesis + MP3 background track
 window.AudioFX = (() => {
   let ctx = null;
   let masterGain = null;
   let musicIntervalId = null;
   let musicMode = null; // 'normal' | 'boss' | null
+  let bgAudio = null;   // HTML Audio element for MP3 background
 
   // D major note frequencies — bright, adventure-like (Zelda-ish)
   const F = {
@@ -207,14 +208,27 @@ window.AudioFX = (() => {
     musicIntervalId = setInterval(schedule, 25);
   }
 
+  function _ensureBgAudio() {
+    if (bgAudio) return;
+    bgAudio = new Audio('js/Neon%20Scale%20Run.mp3');
+    bgAudio.loop = true;
+    bgAudio.volume = 0.38;
+  }
+
   function startMusic() {
     if (musicMode === 'normal') return;
-    _playChiptune(MELODY_NORMAL, BASS_NORMAL, 100);
+    // stop boss chiptune if running
+    if (musicIntervalId !== null) { clearInterval(musicIntervalId); musicIntervalId = null; }
     musicMode = 'normal';
+    if (!window.Storage.getSetting('music')) return;
+    _ensureBgAudio();
+    bgAudio.play().catch(() => {});
   }
 
   function startBossMusic() {
     if (musicMode === 'boss') return;
+    // pause MP3 and switch to chiptune
+    if (bgAudio) bgAudio.pause();
     _playChiptune(MELODY_BOSS, BASS_BOSS, 126);
     musicMode = 'boss';
   }
@@ -224,6 +238,7 @@ window.AudioFX = (() => {
       clearInterval(musicIntervalId);
       musicIntervalId = null;
     }
+    if (bgAudio) bgAudio.pause();
     musicMode = null;
   }
 
