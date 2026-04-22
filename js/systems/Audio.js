@@ -48,16 +48,29 @@ window.AudioFX = (() => {
     [F.E3,  2.0], [F.A2,  3.0], [F._,  1.0],
   ];
 
+  function _fxVol()    { return window.Storage.getSetting('fxVolume')    ?? 1.0; }
+  function _musicVol() { return window.Storage.getSetting('musicVolume') ?? 1.0; }
+
   function init() {
     if (ctx) return;
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       masterGain = ctx.createGain();
-      masterGain.gain.value = 0.35;
+      masterGain.gain.value = _fxVol() * 0.35;
       masterGain.connect(ctx.destination);
     } catch (e) {
       ctx = null;
     }
+  }
+
+  function setFxVolume(v) {
+    window.Storage.setSetting('fxVolume', v);
+    if (masterGain) masterGain.gain.value = v * 0.35;
+  }
+
+  function setMusicVolume(v) {
+    window.Storage.setSetting('musicVolume', v);
+    if (bgAudio) bgAudio.volume = v * (musicMode === 'boss' ? 0.14 : 0.22);
   }
 
   function enabled() {
@@ -240,13 +253,13 @@ window.AudioFX = (() => {
     musicMode = 'normal';
     if (!window.Storage.getSetting('music')) return;
     _ensureBgAudio();
-    bgAudio.volume = 0.22;
+    bgAudio.volume = _musicVol() * 0.22;
     if (bgAudio.paused) bgAudio.play().catch(() => {});
   }
 
   function startBossMusic() {
     if (musicMode === 'boss') return;
-    if (bgAudio) bgAudio.volume = 0.14;
+    if (bgAudio) bgAudio.volume = _musicVol() * 0.14;
     if (musicIntervalId !== null) { clearInterval(musicIntervalId); musicIntervalId = null; }
     musicMode = 'boss';
     sirenSfx();
@@ -264,5 +277,7 @@ window.AudioFX = (() => {
   return {
     init, eatSfx, powerUpSfx, bossSfx, deathSfx, clickSfx, turnSfx,
     startMusic, startBossMusic, stopMusic,
+    setFxVolume, setMusicVolume,
+    getFxVolume: _fxVol, getMusicVolume: _musicVol,
   };
 })();

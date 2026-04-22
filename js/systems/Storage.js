@@ -12,6 +12,8 @@ window.Storage = (() => {
       haptics: true,
       dpad: false,
       scanlines: false,
+      fxVolume: 1.0,
+      musicVolume: 1.0,
     },
   });
 
@@ -74,6 +76,11 @@ window.Storage = (() => {
     },
     getSetting(name) {
       return load().settings[name];
+    },
+    setSetting(name, value) {
+      const s = load();
+      s.settings[name] = value;
+      save();
     },
   };
 })();

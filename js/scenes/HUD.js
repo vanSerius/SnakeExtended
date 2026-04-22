@@ -60,18 +60,75 @@ window.HUDScene = class extends Phaser.Scene {
     // pause overlay
     this.pauseOverlay = this.add.container(CX, CFG.DESIGN_HEIGHT / 2).setVisible(false);
     const bg = this.add.rectangle(0, 0, CFG.DESIGN_WIDTH, CFG.DESIGN_HEIGHT, 0x000000, 0.6);
-    const label = this.add.text(0, -20, 'PAUSED', {
+    const label = this.add.text(0, -80, 'PAUSED', {
       fontFamily: 'Arial Black, Arial, sans-serif',
       fontSize: '48px',
       color: '#e2e8f0',
       fontStyle: 'bold',
     }).setOrigin(0.5);
-    const hint = this.add.text(0, 30, 'tap to resume', {
+
+    // volume sliders (compact, inside overlay)
+    const trackW = 220;
+    const trackH = 5;
+    const knobR  = 9;
+    const sliderItems = [];
+
+    const makeOverlaySlider = (localY, icon, settingKey, applyFn) => {
+      const lbl = this.add.text(-trackW / 2 - 12, localY, icon, {
+        fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#64748b',
+      }).setOrigin(1, 0.5);
+
+      const trackBg = this.add.rectangle(0, localY, trackW, trackH, 0x1a2440, 1);
+
+      let value = window.Storage.getSetting(settingKey);
+      if (typeof value !== 'number') value = 1.0;
+
+      const fill = this.add.rectangle(-trackW / 2, localY, trackW, trackH, 0x4ade80, 1).setOrigin(0, 0.5);
+      fill.scaleX = value;
+      const knob = this.add.circle(-trackW / 2 + value * trackW, localY, knobR, 0x4ade80, 1);
+
+      const pct = this.add.text(trackW / 2 + 12, localY, `${Math.round(value * 100)}%`, {
+        fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#94a3b8',
+      }).setOrigin(0, 0.5);
+
+      // zone for hit detection (inside the container — world x = CX + 0 = CX)
+      const zone = this.add.zone(0, localY, trackW + knobR * 2, 34).setInteractive({ useHandCursor: true });
+
+      const setValue = (ptrX) => {
+        // ptrX is world x; track left edge is CX - trackW/2
+        value = Phaser.Math.Clamp((ptrX - (CX - trackW / 2)) / trackW, 0, 1);
+        fill.scaleX = value;
+        knob.x = -trackW / 2 + value * trackW;
+        pct.setText(`${Math.round(value * 100)}%`);
+        window.Storage.setSetting(settingKey, value);
+        applyFn(value);
+      };
+
+      zone.on('pointerdown', (ptr, _lx, _ly, event) => {
+        event.stopPropagation();
+        this._activePauseSlider = setValue;
+        setValue(ptr.x);
+      });
+
+      sliderItems.push(lbl, trackBg, fill, knob, pct, zone);
+      return { fill, knob, pct };
+    };
+
+    makeOverlaySlider(-10, 'FX Vol',    'fxVolume',    v => window.AudioFX.setFxVolume(v));
+    makeOverlaySlider( 35, 'Music Vol', 'musicVolume', v => window.AudioFX.setMusicVolume(v));
+
+    // scene-level drag tracking for the pause sliders
+    this._activePauseSlider = null;
+    this.input.on('pointermove', (ptr) => { if (this._activePauseSlider && ptr.isDown) this._activePauseSlider(ptr.x); });
+    this.input.on('pointerup',   ()    => { this._activePauseSlider = null; });
+
+    const hint = this.add.text(0, 82, 'tap anywhere to resume', {
       fontFamily: 'Arial, sans-serif',
-      fontSize: '16px',
-      color: '#94a3b8',
+      fontSize: '14px',
+      color: '#64748b',
     }).setOrigin(0.5);
-    this.pauseOverlay.add([bg, label, hint]);
+
+    this.pauseOverlay.add([bg, label, ...sliderItems, hint]);
     bg.setInteractive();
     bg.on('pointerdown', () => this.events.emit('toggle-pause'));
     this.pauseOverlay.setDepth(1000);
