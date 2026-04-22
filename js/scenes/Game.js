@@ -542,9 +542,13 @@ window.GameScene = class extends Phaser.Scene {
       }
     }
 
-    // food eat
-    if (this.food && h.col === this.food.col && h.row === this.food.row) {
-      this._eat();
+    // food eat — blob mega-boss uses enlarged hitbox (Manhattan ≤ 1) to match visual size
+    if (this.food) {
+      const blobMega = this.food.type === 'boss' && this.food.bossKind === 'blob';
+      const hitFood = blobMega
+        ? Math.abs(h.col - this.food.col) + Math.abs(h.row - this.food.row) <= 1
+        : h.col === this.food.col && h.row === this.food.row;
+      if (hitFood) this._eat();
     }
 
     // freeze-orb collision — freezes the BOSS, not the snake
@@ -845,9 +849,22 @@ window.GameScene = class extends Phaser.Scene {
       const step = this.boss.pickStep(this);
       if (step !== undefined) {
         if (step !== null) {
+          const prevCol = f.col, prevRow = f.row;
           f.col = step.nc; f.row = step.nr;
           const w = this._cellToWorld(f);
-          this.tweens.add({ targets: f.sprite, x: w.x, y: w.y, duration: 180, ease: 'Sine.easeInOut' });
+          const isWrap = Math.abs(step.nc - prevCol) > 1 || Math.abs(step.nr - prevRow) > 1;
+          if (isWrap) {
+            this.tweens.killTweensOf(f.sprite);
+            f.sprite.setPosition(w.x, w.y);
+            f.sprite.setAlpha(0);
+            this.tweens.add({ targets: f.sprite, alpha: 1, duration: 120 });
+            this.tweens.add({
+              targets: f.sprite, scale: { from: 0.6, to: 0.78 },
+              duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+            });
+          } else {
+            this.tweens.add({ targets: f.sprite, x: w.x, y: w.y, duration: 180, ease: 'Sine.easeInOut' });
+          }
           this.boss.onMove(this, f);
         }
         // null = teleported by pickStep, no further action

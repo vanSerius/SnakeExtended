@@ -73,6 +73,9 @@ window.BossController = class {
     this.orbRespawnQueue = [];
     this.subBlobs = [];
     this.blobMoveCounter = 0;
+    this.bombDir = null;
+    this.bombStepCount = 0;
+    this.lastBombDropTime = 0;
   }
 
   isFrozen(scene) {
@@ -113,6 +116,7 @@ window.BossController = class {
     switch (this.kind) {
       case 'ice':    this._spawnFreezeOrbs(scene); break;
       case 'mirror': this._spawnClone(scene, cell); break;
+      case 'bomb':   this.lastBombDropTime = scene.time.now; break;
     }
   }
 
@@ -122,6 +126,7 @@ window.BossController = class {
       case 'phantom': this._phantomTick(scene); break;
       case 'mirror':  this._mirrorTick(scene); break;
       case 'blob':    this._blobTick(scene); break;
+      case 'bomb':    this._bombTick(scene); break;
     }
   }
 
@@ -130,11 +135,11 @@ window.BossController = class {
       this.history.push({ col: cell.col, row: cell.row, time: scene.time.now });
       if (this.history.length > 60) this.history.shift();
     }
-    if (this.kind === 'bomb') this._bombOnMove(scene, cell);
   }
 
   pickStep(scene) {
-    if (this.kind === 'ice') return this._icePickStep(scene);
+    if (this.kind === 'ice')  return this._icePickStep(scene);
+    if (this.kind === 'bomb') return this._bombPickStep(scene);
     return undefined; // undefined = use random walk
   }
 
@@ -337,16 +342,14 @@ window.BossController = class {
 
   // ── Bomb ─────────────────────────────────────────────────────────────
 
-  _bombOnMove(scene, cell) {
-    this.dropCounter++;
-    if (this.dropCounter < scene.CFG.BOMB_MOVE_INTERVAL) return;
-    this.dropCounter = 0;
-    if (Math.random() >= scene.CFG.BOMB_DROP_CHANCE) return;
+  _bombTick(scene) {
+    const now = scene.time.now;
+    if (now - this.lastBombDropTime < 2000) return;
+    this.lastBombDropTime = now;
 
-    // drop mine at the cell the boss just LEFT, not where it arrived
-    const col = this.lastBossCell ? this.lastBossCell.col : cell.col;
-    const row = this.lastBossCell ? this.lastBossCell.row : cell.row;
-
+    const f = scene.food;
+    if (!f) return;
+    const { col, row } = f;
     if (this.mines.some(m => m.col === col && m.row === row)) return;
     if (scene.snake.occupies(col, row)) return;
 
@@ -356,6 +359,43 @@ window.BossController = class {
     scene.foodLayer.add(sprite);
     scene.tweens.add({ targets: sprite, alpha: 1, duration: 200 });
     this.mines.push({ col, row, sprite });
+  }
+
+  _bombPickStep(scene) {
+    const CFG = scene.CFG;
+    const f = scene.food;
+    if (!f) return undefined;
+
+    const dirs = [{ c: 1, r: 0 }, { c: -1, r: 0 }, { c: 0, r: 1 }, { c: 0, r: -1 }];
+
+    // continue in the same direction for at least 3 steps before choosing a new one
+    if (this.bombDir && this.bombStepCount < 3) {
+      const nc = ((f.col + this.bombDir.c) + CFG.GRID_COLS) % CFG.GRID_COLS;
+      const nr = ((f.row + this.bombDir.r) + CFG.GRID_ROWS) % CFG.GRID_ROWS;
+      if (!scene.snake.occupies(nc, nr) && !scene.obstacles.has(nc, nr)) {
+        this.bombStepCount++;
+        return { nc, nr };
+      }
+      // blocked — pick a new direction
+      this.bombDir = null;
+      this.bombStepCount = 0;
+    }
+
+    // shuffle and pick first valid direction (wrapping)
+    for (let i = dirs.length - 1; i > 0; i--) {
+      const j = Math.floor(scene.rng() * (i + 1));
+      [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+    }
+    for (const d of dirs) {
+      const nc = ((f.col + d.c) + CFG.GRID_COLS) % CFG.GRID_COLS;
+      const nr = ((f.row + d.r) + CFG.GRID_ROWS) % CFG.GRID_ROWS;
+      if (!scene.snake.occupies(nc, nr) && !scene.obstacles.has(nc, nr)) {
+        this.bombDir = d;
+        this.bombStepCount = 1;
+        return { nc, nr };
+      }
+    }
+    return null; // completely boxed in
   }
 
   _clearMines(scene) {
