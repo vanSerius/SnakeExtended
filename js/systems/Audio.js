@@ -212,25 +212,46 @@ window.AudioFX = (() => {
     if (bgAudio) return;
     bgAudio = new Audio('js/Neon%20Scale%20Run.mp3');
     bgAudio.loop = true;
-    bgAudio.volume = 0.38;
+    bgAudio.volume = 0.28;
+  }
+
+  function sirenSfx() {
+    if (!enabled()) return;
+    const now = ctx.currentTime;
+    // two rising sweeps — 300→620 Hz, sine, soft gain
+    [0, 0.52].forEach(offset => {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(300,  now + offset);
+      osc.frequency.linearRampToValueAtTime(620, now + offset + 0.44);
+      g.gain.setValueAtTime(0,    now + offset);
+      g.gain.linearRampToValueAtTime(0.13, now + offset + 0.04);
+      g.gain.setValueAtTime(0.13, now + offset + 0.36);
+      g.gain.linearRampToValueAtTime(0,    now + offset + 0.5);
+      osc.connect(g).connect(masterGain);
+      osc.start(now + offset);
+      osc.stop(now  + offset + 0.55);
+    });
   }
 
   function startMusic() {
     if (musicMode === 'normal') return;
-    // stop boss chiptune if running
     if (musicIntervalId !== null) { clearInterval(musicIntervalId); musicIntervalId = null; }
     musicMode = 'normal';
     if (!window.Storage.getSetting('music')) return;
     _ensureBgAudio();
+    bgAudio.volume = 0.28;
     bgAudio.play().catch(() => {});
   }
 
   function startBossMusic() {
     if (musicMode === 'boss') return;
-    // pause MP3 and switch to chiptune
-    if (bgAudio) bgAudio.pause();
-    _playChiptune(MELODY_BOSS, BASS_BOSS, 126);
+    // keep MP3 running, just duck it a little
+    if (bgAudio) bgAudio.volume = 0.18;
+    if (musicIntervalId !== null) { clearInterval(musicIntervalId); musicIntervalId = null; }
     musicMode = 'boss';
+    sirenSfx();
   }
 
   function stopMusic() {
