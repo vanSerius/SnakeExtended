@@ -561,15 +561,26 @@ window.BossController = class {
 window.BossSelector = {
   last: null,
   _keys: Object.keys(window.BOSS_TYPES),
+  _seen: new Set(),
 
   pick(rng) {
-    const available = this._keys.filter(k => k !== this.last);
-    const key = available[Math.floor(rng() * available.length)];
+    // Prefer unseen bosses; avoid repeating the last one
+    const unseen = this._keys.filter(k => !this._seen.has(k));
+    const pool   = unseen.length > 1 ? unseen.filter(k => k !== this.last)
+                 : unseen.length === 1 ? unseen
+                 : this._keys.filter(k => k !== this.last);
+    const key = pool[Math.floor(rng() * pool.length)];
     this.last = key;
+    this._seen.add(key);
     return key;
+  },
+
+  allSeen() {
+    return this._seen.size >= this._keys.length;
   },
 
   reset() {
     this.last = null;
+    this._seen = new Set();
   },
 };

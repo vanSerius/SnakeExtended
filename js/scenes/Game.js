@@ -45,6 +45,9 @@ window.GameScene = class extends Phaser.Scene {
     this.boss = null;
     this.arenaTint = null;
     this.arenaBorder = null;
+    this.bossRushActive  = false;
+    this.bossRushPending = false;
+    this.bossRushQueue   = [];
     window.BossSelector.reset();
 
     this.tickMs = CFG.TICK_START_MS;
@@ -249,9 +252,19 @@ window.GameScene = class extends Phaser.Scene {
 
   _spawnFood() {
     const CFG = this.CFG;
+
+    // Boss Rush: no more bosses in queue → victory
+    if (this.bossRushActive && this.bossRushQueue.length === 0) {
+      this._youWon();
+      return;
+    }
+
     let type = 'apple';
     let bossKind = null;
-    if ((this.applesEaten + 1) % CFG.BOSS_FOOD_EVERY === 0) {
+    if (this.bossRushActive) {
+      type = 'boss';
+      bossKind = this.bossRushQueue.shift();
+    } else if ((this.applesEaten + 1) % CFG.BOSS_FOOD_EVERY === 0) {
       type = 'boss';
       bossKind = window.BossSelector.pick(this.rng);
     }
@@ -584,12 +597,15 @@ window.GameScene = class extends Phaser.Scene {
             this._shieldAbsorb();
             window.FX.floatText(this, mwx, mwy - 20, 'BLOCKED!', '#fbbf24', 22);
           } else {
+            const lost = Math.max(10, Math.floor(this.score * 0.1));
+            this.score = Math.max(0, this.score - lost);
             window.FX.shockwave(this, mwx, mwy, 0x991b1b);
-            window.FX.flash(this, 0x991b1b, 220, 0.3);
-            window.FX.shake(this, 220, 0.015);
-            window.FX.floatText(this, mwx, mwy - 20, `-${CFG.BOMB_SEGMENT_LOSS}!`, '#ef4444', 26);
+            window.FX.flash(this, 0xff0000, 280, 0.45);
+            window.FX.shake(this, 260, 0.018);
+            window.FX.floatText(this, mwx, mwy - 20, `-${lost}  SCORE!`, '#ef4444', 28);
             window.AudioFX.deathSfx();
-            this._shrinkSnakeBy(CFG.BOMB_SEGMENT_LOSS);
+            this.hud.events.emit('score', this.score);
+            this.hud.events.emit('score-flash-red');
           }
           break;
         }
@@ -701,8 +717,8 @@ window.GameScene = class extends Phaser.Scene {
       const gained = CFG.POINTS_BOSS * mult + CFG.POINTS_BOSS_BONUS;
       this.score += gained;
 
-      // halve snake (risk/reward)
-      const newLen = Math.max(3, Math.floor(this.snake.cells.length / 2));
+      // trim snake by 20% on boss defeat
+      const newLen = Math.max(3, Math.floor(this.snake.cells.length * 0.8));
       const diff = this.snake.cells.length - newLen;
       if (diff > 0) this._shrinkSnakeBy(diff);
 
@@ -729,7 +745,13 @@ window.GameScene = class extends Phaser.Scene {
     this.hud.events.emit('tick-ms', this.tickMs);
 
     this._clearFood();
-    this._spawnFood();
+    // After a boss kill, check if this completes the first rotation → Boss Rush
+    if (f.type === 'boss' && !this.bossRushActive && !this.bossRushPending && window.BossSelector.allSeen()) {
+      this.bossRushPending = true;
+      this._triggerBossRush();
+    } else {
+      this._spawnFood();
+    }
   }
 
   _eatBlobFood() {
@@ -772,7 +794,7 @@ window.GameScene = class extends Phaser.Scene {
     const gained = CFG.POINTS_BOSS_BONUS * mult;
     this.score += gained;
 
-    const newLen = Math.max(3, Math.floor(this.snake.cells.length / 2));
+    const newLen = Math.max(3, Math.floor(this.snake.cells.length * 0.8));
     const diff = this.snake.cells.length - newLen;
     if (diff > 0) this._shrinkSnakeBy(diff);
 
@@ -792,7 +814,13 @@ window.GameScene = class extends Phaser.Scene {
 
     this.hud.events.emit('score', this.score);
     this.hud.events.emit('tick-ms', this.tickMs);
-    this._spawnFood();
+
+    if (!this.bossRushActive && !this.bossRushPending && window.BossSelector.allSeen()) {
+      this.bossRushPending = true;
+      this._triggerBossRush();
+    } else {
+      this._spawnFood();
+    }
   }
 
   _teleportBoss() {
@@ -963,6 +991,126 @@ window.GameScene = class extends Phaser.Scene {
       if (!obj) return;
       this[key] = null;
       this.tweens.add({ targets: obj, alpha: 0, duration: ms, onComplete: () => obj.destroy() });
+    });
+  }
+
+  _triggerBossRush() {
+    const CFG = this.CFG;
+    const cx  = CFG.DESIGN_WIDTH  / 2;
+    const cy  = CFG.DESIGN_HEIGHT / 2;
+
+    // Build a fresh shuffled queue of all 6 boss types
+    const keys = Object.keys(window.BOSS_TYPES);
+    for (let i = keys.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rng() * (i + 1));
+      [keys[i], keys[j]] = [keys[j], keys[i]];
+    }
+    this.bossRushQueue = keys;
+
+    this.paused = true;
+    window.AudioFX.stopMusic();
+
+    // Dark overlay
+    const overlay = this.add.rectangle(cx, cy, CFG.DESIGN_WIDTH, CFG.DESIGN_HEIGHT, 0x000000, 0).setDepth(200);
+    this.tweens.add({ targets: overlay, alpha: 0.82, duration: 350 });
+
+    // "BOSS RUSH!" heading
+    const heading = this.add.text(cx, cy - 80, 'BOSS\nRUSH!', {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '86px', fontStyle: 'bold',
+      color: '#fbbf24', align: 'center',
+    }).setOrigin(0.5).setDepth(201).setAlpha(0).setScale(0.3);
+    heading.setShadow(0, 0, '#fbbf24', 40, true, true);
+
+    this.tweens.add({
+      targets: heading, alpha: 1, scale: 1.05,
+      duration: 520, ease: 'Back.easeOut',
+      onComplete: () => this.tweens.add({
+        targets: heading, scale: { from: 1.05, to: 0.97 },
+        duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      }),
+    });
+
+    const sub = this.add.text(cx, cy + 52, 'Defeat all 6 bosses!', {
+      fontFamily: 'Arial, sans-serif', fontSize: '22px', color: '#94a3b8',
+    }).setOrigin(0.5).setDepth(201).setAlpha(0);
+    this.tweens.add({ targets: sub, alpha: 1, duration: 380, delay: 480 });
+
+    // Audio & haptics
+    window.AudioFX.sirenSfx();
+    this.time.delayedCall(520, () => window.AudioFX.sirenSfx());
+    window.FX.vibrate([40, 40, 80, 40, 80]);
+    [0, 300, 620].forEach(d => this.time.delayedCall(d, () => window.AudioFX.bossSfx()));
+
+    // Dismiss after 3.2s → start rush
+    this.time.delayedCall(3200, () => {
+      this.tweens.add({
+        targets: [overlay, heading, sub], alpha: 0, duration: 380,
+        onComplete: () => { overlay.destroy(); heading.destroy(); sub.destroy(); },
+      });
+      this.time.delayedCall(340, () => {
+        this.paused = false;
+        this.bossRushActive = true;
+        window.AudioFX.startMusic();
+        this._spawnFood();
+      });
+    });
+  }
+
+  _youWon() {
+    if (this.gameOver) return;
+    this.gameOver = true;
+
+    const CFG = this.CFG;
+    const cx  = CFG.DESIGN_WIDTH  / 2;
+    const cy  = CFG.DESIGN_HEIGHT / 2;
+
+    window.AudioFX.stopMusic();
+    window.FX.vibrate([30, 40, 60, 40, 80, 100]);
+
+    let newBest = false;
+    if (this.mode === 'daily') {
+      newBest = window.Storage.setDaily(this.dailyKey, this.score);
+    } else {
+      newBest = window.Storage.setBest(this.mode, this.score);
+    }
+
+    const overlay = this.add.rectangle(cx, cy, CFG.DESIGN_WIDTH, CFG.DESIGN_HEIGHT, 0x000000, 0).setDepth(200);
+    this.tweens.add({ targets: overlay, alpha: 0.88, duration: 450 });
+
+    const heading = this.add.text(cx, cy - 80, 'YOU\nWON!', {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '86px', fontStyle: 'bold',
+      color: '#4ade80', align: 'center',
+    }).setOrigin(0.5).setDepth(201).setAlpha(0).setScale(0.3);
+    heading.setShadow(0, 0, '#22d3ee', 40, true, true);
+
+    this.tweens.add({
+      targets: heading, alpha: 1, scale: 1.0,
+      duration: 700, ease: 'Back.easeOut',
+      onComplete: () => this.tweens.add({
+        targets: heading, scale: { from: 1.0, to: 1.07 },
+        duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      }),
+    });
+
+    const scoreLabel = this.add.text(cx, cy + 52, `Final Score: ${this.score}`, {
+      fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '28px', color: '#fbbf24',
+    }).setOrigin(0.5).setDepth(201).setAlpha(0);
+    this.tweens.add({ targets: scoreLabel, alpha: 1, duration: 500, delay: 650 });
+
+    window.AudioFX.bossSfx();
+    window.FX.flash(this, 0x4ade80, 600, 0.35);
+    this.time.delayedCall(500, () => window.AudioFX.bossSfx());
+
+    this.time.delayedCall(3600, () => {
+      this.scene.stop('HUD');
+      this.scene.start('GameOver', {
+        mode: this.mode, score: this.score,
+        applesEaten: this.applesEaten, newBest,
+        dailyKey: this.dailyKey || null,
+        victory: true,
+      });
     });
   }
 

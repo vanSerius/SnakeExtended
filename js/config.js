@@ -37,8 +37,8 @@ window.CONFIG = (() => {
     // tick timing
     TICK_START_MS: 140,
     TICK_MIN_MS: 60,
-    TICK_STEP_MS: 4,
-    TICK_STEP_EVERY: 5, // faster every N apples
+    TICK_STEP_MS: 6,
+    TICK_STEP_EVERY: 3, // faster every N apples
 
     // gameplay
     COMBO_WINDOW_MS: 2500,

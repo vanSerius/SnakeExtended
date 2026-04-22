@@ -8,6 +8,7 @@ window.GameOverScene = class extends Phaser.Scene {
     this.applesEaten = data.applesEaten;
     this.newBest = data.newBest;
     this.dailyKey = data.dailyKey;
+    this.victory = data.victory || false;
   }
 
   create() {
@@ -17,15 +18,25 @@ window.GameOverScene = class extends Phaser.Scene {
     this.add.image(CFG.DESIGN_WIDTH / 2, CFG.DESIGN_HEIGHT / 2, 'bg-gradient');
     this.add.rectangle(CX, CFG.DESIGN_HEIGHT / 2, CFG.DESIGN_WIDTH, CFG.DESIGN_HEIGHT, 0x000000, 0.35);
 
-    this.add.text(CX, 180, 'GAME OVER', {
+    const headingText  = this.victory ? 'YOU WON!' : 'GAME OVER';
+    const headingColor = this.victory ? '#4ade80'  : '#f87171';
+    const heading = this.add.text(CX, 180, headingText, {
       fontFamily: 'Arial Black, Arial, sans-serif',
       fontSize: '56px',
-      color: '#f87171',
+      color: headingColor,
       fontStyle: 'bold',
-    }).setOrigin(0.5).setShadow(0, 0, '#f87171', 18, true, true);
+    }).setOrigin(0.5);
+    heading.setShadow(0, 0, headingColor, 18, true, true);
+    if (this.victory) {
+      this.tweens.add({
+        targets: heading, scale: { from: 1, to: 1.06 },
+        duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      });
+    }
 
-    this.add.text(CX, 240, this.mode.toUpperCase(), {
-      fontFamily: 'Arial, sans-serif', fontSize: '18px', color: '#94a3b8', letterSpacing: 6,
+    this.add.text(CX, 240, this.victory ? 'BOSS RUSH  COMPLETE' : this.mode.toUpperCase(), {
+      fontFamily: 'Arial, sans-serif', fontSize: '18px',
+      color: this.victory ? '#fbbf24' : '#94a3b8', letterSpacing: 6,
     }).setOrigin(0.5);
 
     // animated score count-up

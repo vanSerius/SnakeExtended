@@ -275,7 +275,7 @@ window.AudioFX = (() => {
   }
 
   return {
-    init, eatSfx, powerUpSfx, bossSfx, deathSfx, clickSfx, turnSfx,
+    init, eatSfx, powerUpSfx, bossSfx, deathSfx, clickSfx, turnSfx, sirenSfx,
     startMusic, startBossMusic, stopMusic,
     setFxVolume, setMusicVolume,
     getFxVolume: _fxVol, getMusicVolume: _musicVol,

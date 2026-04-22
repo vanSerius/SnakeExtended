@@ -139,6 +139,10 @@ window.HUDScene = class extends Phaser.Scene {
     this.events.on('tick-ms', t => this._onTick(t));
     this.events.on('powerups', pu => this._onPowerUps(pu));
     this.events.on('paused-state', p => this._setPaused(p));
+    this.events.on('score-flash-red', () => {
+      this.scoreText.setTint(0xef4444);
+      this.time.delayedCall(500, () => this.scoreText.clearTint());
+    });
 
     // tick combo updates visually each frame using the game scene's combo
     this.gameScene = this.scene.get('Game');
