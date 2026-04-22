@@ -113,8 +113,10 @@ window.GameScene = class extends Phaser.Scene {
       '#e2e8f0', 22
     );
 
-    // start ambient music if enabled
+    // start ambient music — also retry on first input in case autoplay was blocked
     window.AudioFX.startMusic();
+    this.input.once('pointerdown', () => window.AudioFX.startMusic());
+    this.input.keyboard.once('keydown', () => window.AudioFX.startMusic());
 
     this.events.once('shutdown', () => {
       this.inputSys.destroy();
@@ -282,6 +284,7 @@ window.GameScene = class extends Phaser.Scene {
     if (type === 'boss') {
       this.boss = new window.BossController(this, bossKind);
       this.boss.onSpawn(this, cell);
+      this._bossAlertFlash();
       window.AudioFX.startBossMusic();
     }
 
@@ -881,6 +884,25 @@ window.GameScene = class extends Phaser.Scene {
       const s = this.snakeSprites.pop();
       if (s) { s.body.destroy(); s.glow.destroy(); }
     }
+  }
+
+  _bossAlertFlash() {
+    const CFG = this.CFG;
+    [0, 230, 460].forEach(delay => {
+      this.time.delayedCall(delay, () => {
+        const g = this.add.graphics().setDepth(8);
+        g.lineStyle(5, 0xff2020, 1.0);
+        g.strokeRoundedRect(CFG.BOARD_X - 7, CFG.BOARD_Y - 7, CFG.BOARD_W + 14, CFG.BOARD_H + 14, 15);
+        g.lineStyle(16, 0xff2020, 0.4);
+        g.strokeRoundedRect(CFG.BOARD_X - 15, CFG.BOARD_Y - 15, CFG.BOARD_W + 30, CFG.BOARD_H + 30, 20);
+        g.lineStyle(30, 0xff2020, 0.12);
+        g.strokeRoundedRect(CFG.BOARD_X - 24, CFG.BOARD_Y - 24, CFG.BOARD_W + 48, CFG.BOARD_H + 48, 26);
+        this.tweens.add({
+          targets: g, alpha: 0, duration: 190,
+          onComplete: () => g.destroy(),
+        });
+      });
+    });
   }
 
   _playArenaColorWave(hex) {

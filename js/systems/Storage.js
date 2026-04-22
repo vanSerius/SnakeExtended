@@ -8,7 +8,7 @@ window.Storage = (() => {
     dailyScores: {}, // { "20260419": 42 }
     settings: {
       sfx: true,
-      music: false,
+      music: true,
       haptics: true,
       dpad: false,
       scanlines: false,

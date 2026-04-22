@@ -236,18 +236,16 @@ window.AudioFX = (() => {
   }
 
   function startMusic() {
-    if (musicMode === 'normal') return;
     if (musicIntervalId !== null) { clearInterval(musicIntervalId); musicIntervalId = null; }
     musicMode = 'normal';
     if (!window.Storage.getSetting('music')) return;
     _ensureBgAudio();
     bgAudio.volume = 0.28;
-    bgAudio.play().catch(() => {});
+    if (bgAudio.paused) bgAudio.play().catch(() => {});
   }
 
   function startBossMusic() {
     if (musicMode === 'boss') return;
-    // keep MP3 running, just duck it a little
     if (bgAudio) bgAudio.volume = 0.18;
     if (musicIntervalId !== null) { clearInterval(musicIntervalId); musicIntervalId = null; }
     musicMode = 'boss';
