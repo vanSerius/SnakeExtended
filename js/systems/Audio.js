@@ -212,7 +212,7 @@ window.AudioFX = (() => {
     if (bgAudio) return;
     bgAudio = new Audio('js/Neon%20Scale%20Run.mp3');
     bgAudio.loop = true;
-    bgAudio.volume = 0.28;
+    bgAudio.volume = 0.22;
   }
 
   function sirenSfx() {
@@ -240,13 +240,13 @@ window.AudioFX = (() => {
     musicMode = 'normal';
     if (!window.Storage.getSetting('music')) return;
     _ensureBgAudio();
-    bgAudio.volume = 0.28;
+    bgAudio.volume = 0.22;
     if (bgAudio.paused) bgAudio.play().catch(() => {});
   }
 
   function startBossMusic() {
     if (musicMode === 'boss') return;
-    if (bgAudio) bgAudio.volume = 0.18;
+    if (bgAudio) bgAudio.volume = 0.14;
     if (musicIntervalId !== null) { clearInterval(musicIntervalId); musicIntervalId = null; }
     musicMode = 'boss';
     sirenSfx();

@@ -52,9 +52,10 @@ window.MainMenuScene = class extends Phaser.Scene {
       { fontFamily: 'Arial, sans-serif', fontSize: '14px', color: '#64748b' }
     ).setOrigin(0.5);
 
-    // prime audio on first input
-    this.input.once('pointerdown', () => window.AudioFX.init());
-    this.input.keyboard.once('keydown', () => window.AudioFX.init());
+    // prime audio + start music on first input
+    const _startAudio = () => { window.AudioFX.init(); window.AudioFX.startMusic(); };
+    this.input.once('pointerdown', _startAudio);
+    this.input.keyboard.once('keydown', _startAudio);
 
     // subtle title pulse
     this.tweens.add({

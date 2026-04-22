@@ -343,16 +343,19 @@ window.BossController = class {
     this.dropCounter = 0;
     if (Math.random() >= scene.CFG.BOMB_DROP_CHANCE) return;
 
-    if (this.mines.some(m => m.col === cell.col && m.row === cell.row)) return;
-    if (scene.snake.occupies(cell.col, cell.row)) return;
-    if (scene.food && scene.food.col === cell.col && scene.food.row === cell.row) return;
+    // drop mine at the cell the boss just LEFT, not where it arrived
+    const col = this.lastBossCell ? this.lastBossCell.col : cell.col;
+    const row = this.lastBossCell ? this.lastBossCell.row : cell.row;
 
-    const w = scene._cellToWorld(cell);
+    if (this.mines.some(m => m.col === col && m.row === row)) return;
+    if (scene.snake.occupies(col, row)) return;
+
+    const w = scene._cellToWorld({ col, row });
     const sprite = scene.add.image(w.x, w.y, 'mine').setScale(0.65).setAlpha(0);
     sprite.setDepth(13);
     scene.foodLayer.add(sprite);
     scene.tweens.add({ targets: sprite, alpha: 1, duration: 200 });
-    this.mines.push({ col: cell.col, row: cell.row, sprite });
+    this.mines.push({ col, row, sprite });
   }
 
   _clearMines(scene) {
