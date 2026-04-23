@@ -3,7 +3,7 @@ window.GameScene = class extends Phaser.Scene {
   constructor() { super({ key: 'Game' }); }
 
   init(data) {
-    this.mode = data.mode || 'classic';
+    this.mode = data.mode || 'journey';
   }
 
   create() {
@@ -12,14 +12,8 @@ window.GameScene = class extends Phaser.Scene {
 
     this.add.image(CFG.DESIGN_WIDTH / 2, CFG.DESIGN_HEIGHT / 2, 'bg-gradient');
 
-    // RNG: deterministic for daily, Math.random for others
-    if (this.mode === 'daily') {
-      const d = window.Daily.create();
-      this.rng = d.next;
-      this.dailyKey = d.key;
-    } else {
-      this.rng = Math.random;
-    }
+    this.rng = Math.random;
+    this.dailyKey = null;
 
     // board frame
     this._drawBoard();
@@ -91,15 +85,12 @@ window.GameScene = class extends Phaser.Scene {
     // spawn first food
     this._spawnFood();
 
-    // obstacle timer
-    if (this.mode === 'endless' || this.mode === 'daily') {
-      const ival = this.mode === 'daily' ? CFG.DAILY_OBSTACLE_INTERVAL_MS : CFG.OBSTACLE_INTERVAL_MS;
-      this.obstacleTimer = this.time.addEvent({
-        delay: ival,
-        loop: true,
-        callback: () => this._spawnObstacle(),
-      });
-    }
+    // obstacle timer — journey spawns obstacles periodically for mounting difficulty
+    this.obstacleTimer = this.time.addEvent({
+      delay: CFG.OBSTACLE_INTERVAL_MS,
+      loop: true,
+      callback: () => this._spawnObstacle(),
+    });
 
     // boss movement counter
     this.bossMoveCounter = 0;
@@ -109,17 +100,12 @@ window.GameScene = class extends Phaser.Scene {
     // resume from pause via HUD events
     this.hud.events.on('toggle-pause', () => this._togglePause());
 
-    // announce mode briefly
-    window.FX.floatText(this,
-      CFG.DESIGN_WIDTH / 2, CFG.BOARD_Y - 40,
-      this.mode.toUpperCase(),
-      '#e2e8f0', 22
-    );
+    window.FX.floatText(this, CFG.DESIGN_WIDTH / 2, CFG.BOARD_Y - 40, 'JOURNEY', '#4ade80', 22);
 
-    // start ambient music — also retry on first input in case autoplay was blocked
-    window.AudioFX.startMusic();
-    this.input.once('pointerdown', () => window.AudioFX.startMusic());
-    this.input.keyboard.once('keydown', () => window.AudioFX.startMusic());
+    // restart music from beginning for every new run
+    window.AudioFX.restartMusic();
+    this.input.once('pointerdown', () => window.AudioFX.restartMusic());
+    this.input.keyboard.once('keydown', () => window.AudioFX.restartMusic());
 
     this.events.once('shutdown', () => {
       this.inputSys.destroy();
@@ -485,9 +471,9 @@ window.GameScene = class extends Phaser.Scene {
   _tick() {
     const CFG = this.CFG;
 
-    // wrap in endless mode
-    const wrapC = this.mode === 'endless' ? CFG.GRID_COLS : null;
-    const wrapR = this.mode === 'endless' ? CFG.GRID_ROWS : null;
+    // no wrapping in journey mode
+    const wrapC = null;
+    const wrapR = null;
 
     const { wrapped } = this.snake.advance(wrapC, wrapR);
 
@@ -1140,13 +1126,7 @@ window.GameScene = class extends Phaser.Scene {
       this.trailEmitter.emitParticleAt(w.x + this.CFG.BOARD_X, w.y + this.CFG.BOARD_Y, 4);
     });
 
-    // save best
-    let newBest = false;
-    if (this.mode === 'daily') {
-      newBest = window.Storage.setDaily(this.dailyKey, this.score);
-    } else {
-      newBest = window.Storage.setBest(this.mode, this.score);
-    }
+    const newBest = window.Storage.setBest(this.mode, this.score);
 
     this.time.delayedCall(700, () => {
       this.scene.stop('HUD');

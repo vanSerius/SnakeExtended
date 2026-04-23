@@ -5,6 +5,7 @@ window.Storage = (() => {
   const defaults = () => ({
     bestClassic: 0,
     bestEndless: 0,
+    bestJourney: 0,
     dailyScores: {}, // { "20260419": 42 }
     settings: {
       sfx: true,
@@ -50,6 +51,7 @@ window.Storage = (() => {
       const s = load();
       if (mode === 'classic' && score > s.bestClassic) { s.bestClassic = score; save(); return true; }
       if (mode === 'endless' && score > s.bestEndless) { s.bestEndless = score; save(); return true; }
+      if (mode === 'journey' && score > s.bestJourney) { s.bestJourney = score; save(); return true; }
       return false;
     },
     setDaily(dateKey, score) {
@@ -62,6 +64,7 @@ window.Storage = (() => {
       const s = load();
       if (mode === 'classic') return s.bestClassic;
       if (mode === 'endless') return s.bestEndless;
+      if (mode === 'journey') return s.bestJourney;
       return 0;
     },
     getDaily(dateKey) {

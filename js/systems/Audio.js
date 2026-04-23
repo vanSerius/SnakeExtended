@@ -248,6 +248,16 @@ window.AudioFX = (() => {
     });
   }
 
+  function restartMusic() {
+    if (musicIntervalId !== null) { clearInterval(musicIntervalId); musicIntervalId = null; }
+    musicMode = 'normal';
+    if (!window.Storage.getSetting('music')) return;
+    _ensureBgAudio();
+    bgAudio.volume = _musicVol() * 0.22;
+    bgAudio.currentTime = 0;
+    bgAudio.play().catch(() => {});
+  }
+
   function startMusic() {
     if (musicIntervalId !== null) { clearInterval(musicIntervalId); musicIntervalId = null; }
     musicMode = 'normal';
@@ -276,7 +286,7 @@ window.AudioFX = (() => {
 
   return {
     init, eatSfx, powerUpSfx, bossSfx, deathSfx, clickSfx, turnSfx, sirenSfx,
-    startMusic, startBossMusic, stopMusic,
+    startMusic, restartMusic, startBossMusic, stopMusic,
     setFxVolume, setMusicVolume,
     getFxVolume: _fxVol, getMusicVolume: _musicVol,
   };

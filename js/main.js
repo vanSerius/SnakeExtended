@@ -24,6 +24,7 @@
       window.HUDScene,
       window.GameOverScene,
       window.SettingsScene,
+      window.HighScoresScene,
     ],
     fps: { target: 60, forceSetTimeOut: false },
     input: { activePointers: 3 },
