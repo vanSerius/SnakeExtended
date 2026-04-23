@@ -1,65 +1,103 @@
-// HighScores.js - journey best score display
+// HighScores.js - global leaderboard via Supabase
 window.HighScoresScene = class extends Phaser.Scene {
   constructor() { super({ key: 'HighScores' }); }
 
   create() {
     const CFG = window.CONFIG;
     const CX  = CFG.DESIGN_WIDTH / 2;
-    const CY  = CFG.DESIGN_HEIGHT / 2;
 
-    this.add.image(CX, CY, 'bg-gradient');
-    this.add.rectangle(CX, CY, CFG.DESIGN_WIDTH, CFG.DESIGN_HEIGHT, 0x000000, 0.35);
+    this.add.image(CX, CFG.DESIGN_HEIGHT / 2, 'bg-gradient');
+    this.add.rectangle(CX, CFG.DESIGN_HEIGHT / 2, CFG.DESIGN_WIDTH, CFG.DESIGN_HEIGHT, 0x000000, 0.35);
 
-    // faint rings
-    const g = this.add.graphics().setAlpha(0.1);
-    g.lineStyle(1, 0x22d3ee, 1);
-    g.strokeEllipse(CX, CY - 60, 380, 300);
+    const gDeco = this.add.graphics().setAlpha(0.08);
+    gDeco.lineStyle(1, 0x22d3ee, 1);
+    gDeco.strokeEllipse(CX, 110, 420, 160);
 
-    this.add.text(CX, 140, 'HIGH SCORES', {
+    this.add.text(CX, 72, 'HIGH SCORES', {
       fontFamily: '"Arial Black", Arial, sans-serif',
-      fontSize: '40px', color: '#22d3ee', fontStyle: 'bold',
-    }).setOrigin(0.5).setShadow(0, 0, '#22d3ee', 20, true, true);
+      fontSize: '38px', color: '#22d3ee', fontStyle: 'bold',
+    }).setOrigin(0.5).setShadow(0, 0, '#22d3ee', 18, true, true);
 
-    // separator
+    this.add.text(CX, 114, 'GLOBAL TOP 10', {
+      fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#334155', letterSpacing: 6,
+    }).setOrigin(0.5);
+
     const sep = this.add.graphics();
-    sep.fillStyle(0x22d3ee, 0.6);
-    sep.fillRect(CX - 48, 186, 96, 2);
-    sep.fillStyle(0x4ade80, 0.3);
-    sep.fillRect(CX - 80, 186, 22, 2);
-    sep.fillRect(CX + 58, 186, 22, 2);
+    sep.fillStyle(0x22d3ee, 0.5);
+    sep.fillRect(CX - 48, 136, 96, 2);
+    sep.fillStyle(0x4ade80, 0.25);
+    sep.fillRect(CX - 80, 136, 22, 2);
+    sep.fillRect(CX + 58, 136, 22, 2);
 
-    // best journey score
-    const best = window.Storage.getBest('journey');
-
-    this.add.text(CX, 260, 'JOURNEY', {
-      fontFamily: 'Arial, sans-serif', fontSize: '15px', color: '#475569', letterSpacing: 6,
+    const localBest = window.Storage.getBest('journey');
+    const myName = window.Storage.getPlayerName();
+    this.add.text(CX, 156, `${myName}  ·  best: ${localBest > 0 ? localBest : '—'}`, {
+      fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#475569',
     }).setOrigin(0.5);
 
-    const scoreText = this.add.text(CX, 350, best > 0 ? `${best}` : '—', {
-      fontFamily: '"Arial Black", Arial, sans-serif',
-      fontSize: '96px', color: '#4ade80', fontStyle: 'bold',
-    }).setOrigin(0.5).setShadow(0, 0, '#22d3ee', 28, true, true);
+    this._rowContainer = this.add.container(0, 0);
 
-    if (best > 0) {
-      this.tweens.add({
-        targets: scoreText, scale: { from: 1, to: 1.04 },
-        duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-      });
-    }
-
-    this.add.text(CX, 432, best > 0 ? 'personal best' : 'no runs yet', {
-      fontFamily: 'Arial, sans-serif', fontSize: '15px', color: '#334155',
+    const loadingText = this.add.text(CX, 490, 'Loading…', {
+      fontFamily: 'Arial, sans-serif', fontSize: '18px', color: '#334155',
     }).setOrigin(0.5);
 
-    // Boss Rush trophy if ever won (could add a win-count later)
-    this.add.text(CX, 490, 'Complete the Boss Rush to win!', {
-      fontFamily: 'Arial, sans-serif', fontSize: '14px', color: '#1e293b',
-    }).setOrigin(0.5);
+    window.Leaderboard.getTop(10).then(rows => {
+      loadingText.destroy();
+      if (!rows || rows.length === 0) {
+        this.add.text(CX, 490, 'No scores yet.\nBe the first!', {
+          fontFamily: 'Arial, sans-serif', fontSize: '18px', color: '#334155', align: 'center',
+        }).setOrigin(0.5);
+        return;
+      }
+      this._renderRows(rows, CX, myName);
+    });
 
-    // BACK button
-    this._makeButton(CX, 760, 'BACK', '#475569', () => {
+    this._makeButton(CX, 888, 'BACK', '#475569', () => {
       window.AudioFX.clickSfx();
       this.scene.start('MainMenu');
+    });
+  }
+
+  _renderRows(rows, CX, myName) {
+    const startY = 180;
+    const rowH   = 68;
+    const rankColors = ['#fbbf24', '#94a3b8', '#b45309'];
+
+    rows.forEach((row, i) => {
+      const cy     = startY + i * rowH + rowH / 2;
+      const isTop3 = i < 3;
+      const isMe   = row.player_name === myName;
+      const rankColor = rankColors[i] || '#334155';
+
+      const bg = this.add.rectangle(CX, cy, 464, rowH - 6,
+        isMe ? 0x071a0e : 0x0d1324, isMe ? 0.85 : 0.5
+      ).setStrokeStyle(1.2, isMe ? 0x4ade80 : (isTop3 ? 0x22d3ee : 0x1a2440),
+        isMe ? 0.7 : (isTop3 ? 0.35 : 0.4));
+      this._rowContainer.add(bg);
+
+      // rank
+      const rankLabel = i === 0 ? '👑' : `#${i + 1}`;
+      this._rowContainer.add(this.add.text(CX - 215, cy, rankLabel, {
+        fontFamily: '"Arial Black", Arial, sans-serif',
+        fontSize: isTop3 ? '19px' : '14px', color: rankColor,
+      }).setOrigin(0, 0.5));
+
+      // name + trophy
+      const displayName = row.player_name + (row.victory ? '  🏆' : '');
+      const nameColor = isMe ? '#4ade80' : (isTop3 ? '#e2e8f0' : '#94a3b8');
+      this._rowContainer.add(this.add.text(CX - 162, cy, displayName, {
+        fontFamily: isTop3 ? '"Arial Black", Arial, sans-serif' : 'Arial, sans-serif',
+        fontSize: isTop3 ? '17px' : '14px', color: nameColor,
+      }).setOrigin(0, 0.5));
+
+      // score
+      const scoreColor = isTop3 ? '#4ade80' : '#64748b';
+      const scoreText = this.add.text(CX + 218, cy, `${row.score}`, {
+        fontFamily: '"Arial Black", Arial, sans-serif',
+        fontSize: isTop3 ? '22px' : '17px', color: scoreColor,
+      }).setOrigin(1, 0.5);
+      if (isTop3) scoreText.setShadow(0, 0, rankColor, 8, true, true);
+      this._rowContainer.add(scoreText);
     });
   }
 

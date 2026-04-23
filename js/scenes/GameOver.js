@@ -76,6 +76,16 @@ window.GameOverScene = class extends Phaser.Scene {
       });
     }
 
+    // submit to global leaderboard
+    const uploadLabel = this.add.text(CX, 572, '↑ saving to leaderboard…', {
+      fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#334155',
+    }).setOrigin(0.5);
+    window.Leaderboard.submit(this.finalScore, this.applesEaten, this.victory).then(ok => {
+      if (!this.scene.isActive('GameOver')) return;
+      uploadLabel.setText(ok ? '✓ score saved' : '');
+      uploadLabel.setColor(ok ? '#4ade80' : '#475569');
+    });
+
     // buttons
     this._makeButton(CX, 660, 'RETRY', '#4ade80', () => {
       window.AudioFX.clickSfx();

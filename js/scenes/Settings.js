@@ -22,8 +22,11 @@ window.SettingsScene = class extends Phaser.Scene {
 
     this._makeToggle(CX, 510, 'Haptics',        'haptics');
 
+    // player name
+    this._makeNameField(CX, 620);
+
     // back button
-    this._makeButton(CX, 740, 'BACK', '#94a3b8', () => {
+    this._makeButton(CX, 760, 'BACK', '#94a3b8', () => {
       window.AudioFX.clickSfx();
       this.scene.start('MainMenu');
     });
@@ -100,6 +103,63 @@ window.SettingsScene = class extends Phaser.Scene {
     zone.on('pointerdown', (ptr) => { dragging = true; setValue(ptr.x); });
     this.input.on('pointermove', (ptr) => { if (dragging) setValue(ptr.x); });
     this.input.on('pointerup',   ()    => { dragging = false; });
+  }
+
+  _makeNameField(cx, y) {
+    this.add.text(cx, y - 22, 'PLAYER NAME', {
+      fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#475569', letterSpacing: 5,
+    }).setOrigin(0.5);
+
+    const nameDisp = this.add.text(cx, y + 18, window.Storage.getPlayerName(), {
+      fontFamily: '"Arial Black", Arial, sans-serif', fontSize: '22px', color: '#22d3ee',
+    }).setOrigin(0.5).setShadow(0, 0, '#22d3ee', 10, true, true);
+
+    const w = 320, h = 52;
+    const bg = this.add.rectangle(cx, y + 18, w, h, 0x0d1324, 0.85)
+      .setStrokeStyle(1.5, 0x22d3ee, 0.5);
+    const hint = this.add.text(cx + w / 2 - 14, y + 18, '✎', {
+      fontFamily: 'Arial, sans-serif', fontSize: '14px', color: '#334155',
+    }).setOrigin(0.5);
+
+    bg.setInteractive({ useHandCursor: true });
+    bg.on('pointerover',  () => bg.setStrokeStyle(1.5, 0x22d3ee, 1));
+    bg.on('pointerout',   () => bg.setStrokeStyle(1.5, 0x22d3ee, 0.5));
+    bg.on('pointerdown',  () => this._openNameInput(nameDisp));
+  }
+
+  _openNameInput(nameText) {
+    const canvas = document.querySelector('#game canvas');
+    if (!canvas) return;
+    const rect   = canvas.getBoundingClientRect();
+    const scaleX = rect.width  / window.CONFIG.DESIGN_WIDTH;
+    const scaleY = rect.height / window.CONFIG.DESIGN_HEIGHT;
+
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.maxLength = 16;
+    inp.value = window.Storage.getPlayerName();
+    inp.style.cssText = `
+      position:fixed;
+      left:${rect.left + (window.CONFIG.DESIGN_WIDTH / 2 - 160) * scaleX}px;
+      top:${rect.top  + 636 * scaleY}px;
+      width:${320 * scaleX}px; height:${52 * scaleY}px;
+      font-size:${22 * scaleY}px;
+      font-family:"Arial Black",Arial,sans-serif;
+      color:#22d3ee; background:#0d1324;
+      border:2px solid #22d3ee; border-radius:4px;
+      text-align:center; outline:none; z-index:9999;
+    `;
+    document.body.appendChild(inp);
+    inp.focus(); inp.select();
+
+    const done = () => {
+      const val = inp.value.trim().slice(0, 16) || 'Anon';
+      window.Storage.setPlayerName(val);
+      nameText.setText(val);
+      if (document.body.contains(inp)) document.body.removeChild(inp);
+    };
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') done(); });
+    inp.addEventListener('blur', done);
   }
 
   _makeButton(x, y, label, colorHex, onClick) {

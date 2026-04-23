@@ -6,6 +6,7 @@ window.Storage = (() => {
     bestClassic: 0,
     bestEndless: 0,
     bestJourney: 0,
+    playerName: 'Anon',
     dailyScores: {}, // { "20260419": 42 }
     settings: {
       sfx: true,
@@ -83,6 +84,14 @@ window.Storage = (() => {
     setSetting(name, value) {
       const s = load();
       s.settings[name] = value;
+      save();
+    },
+    getPlayerName() {
+      return load().playerName || 'Anon';
+    },
+    setPlayerName(name) {
+      const s = load();
+      s.playerName = (name || '').trim().slice(0, 16) || 'Anon';
       save();
     },
   };
