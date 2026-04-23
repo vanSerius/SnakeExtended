@@ -471,9 +471,9 @@ window.GameScene = class extends Phaser.Scene {
   _tick() {
     const CFG = this.CFG;
 
-    // no wrapping in journey mode
-    const wrapC = null;
-    const wrapR = null;
+    // journey mode wraps through walls
+    const wrapC = CFG.GRID_COLS;
+    const wrapR = CFG.GRID_ROWS;
 
     const { wrapped } = this.snake.advance(wrapC, wrapR);
 
