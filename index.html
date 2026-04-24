@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0e1a" />
   <title>Snake Vibes 26</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
   <style>
     html, body {
       margin: 0;
@@ -18,10 +21,11 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       -webkit-user-select: none;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: Orbitron, -apple-system, BlinkMacSystemFont, sans-serif;
       color: #e2e8f0;
     }
     #game {
+      position: relative;
       width: 100%;
       height: 100%;
       display: flex;
@@ -30,38 +34,74 @@
     }
     #game canvas {
       display: block;
-      box-shadow: 0 0 80px rgba(74, 222, 128, 0.08);
+      box-shadow:
+        0 0 80px rgba(74, 222, 128, 0.10),
+        0 0 160px rgba(34, 211, 238, 0.04);
+    }
+    /* CRT scanlines overlay */
+    #scanlines {
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.06) 2px,
+        rgba(0, 0, 0, 0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 200;
+      animation: flicker 8s infinite;
+    }
+    /* subtle vignette */
+    #vignette {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center,
+        transparent 55%,
+        rgba(0, 0, 0, 0.55) 100%
+      );
+      pointer-events: none;
+      z-index: 201;
+    }
+    @keyframes flicker {
+      0%,  97%,  100% { opacity: 1; }
+      98%             { opacity: 0.92; }
+      99%             { opacity: 1; }
+      99.5%           { opacity: 0.96; }
     }
   </style>
 </head>
 <body>
   <div id="game"></div>
+  <div id="scanlines"></div>
+  <div id="vignette"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 
-  <script src="./js/config.js?v=5"></script>
-  <script src="./js/systems/Storage.js?v=5"></script>
-  <script src="./js/systems/Leaderboard.js?v=5"></script>
-  <script src="./js/systems/Audio.js?v=5"></script>
-  <script src="./js/systems/FX.js?v=5"></script>
-  <script src="./js/systems/Daily.js?v=5"></script>
-  <script src="./js/systems/Input.js?v=5"></script>
-  <script src="./js/systems/Snake.js?v=5"></script>
-  <script src="./js/systems/Food.js?v=5"></script>
-  <script src="./js/systems/PowerUps.js?v=5"></script>
-  <script src="./js/systems/Obstacles.js?v=5"></script>
-  <script src="./js/systems/Boss.js?v=5"></script>
-  <script src="./js/systems/Combo.js?v=5"></script>
+  <script src="./js/config.js?v=6"></script>
+  <script src="./js/systems/Storage.js?v=6"></script>
+  <script src="./js/systems/Leaderboard.js?v=6"></script>
+  <script src="./js/systems/Audio.js?v=6"></script>
+  <script src="./js/systems/FX.js?v=6"></script>
+  <script src="./js/systems/Daily.js?v=6"></script>
+  <script src="./js/systems/Input.js?v=6"></script>
+  <script src="./js/systems/Snake.js?v=6"></script>
+  <script src="./js/systems/Food.js?v=6"></script>
+  <script src="./js/systems/PowerUps.js?v=6"></script>
+  <script src="./js/systems/Obstacles.js?v=6"></script>
+  <script src="./js/systems/Boss.js?v=6"></script>
+  <script src="./js/systems/Combo.js?v=6"></script>
 
-  <script src="./js/scenes/Boot.js?v=5"></script>
-  <script src="./js/scenes/Preload.js?v=5"></script>
-  <script src="./js/scenes/MainMenu.js?v=5"></script>
-  <script src="./js/scenes/Game.js?v=5"></script>
-  <script src="./js/scenes/HUD.js?v=5"></script>
-  <script src="./js/scenes/GameOver.js?v=5"></script>
-  <script src="./js/scenes/Settings.js?v=5"></script>
-  <script src="./js/scenes/HighScores.js?v=5"></script>
+  <script src="./js/scenes/Boot.js?v=6"></script>
+  <script src="./js/scenes/Preload.js?v=6"></script>
+  <script src="./js/scenes/MainMenu.js?v=6"></script>
+  <script src="./js/scenes/Game.js?v=6"></script>
+  <script src="./js/scenes/HUD.js?v=6"></script>
+  <script src="./js/scenes/GameOver.js?v=6"></script>
+  <script src="./js/scenes/Settings.js?v=6"></script>
+  <script src="./js/scenes/HighScores.js?v=6"></script>
 
-  <script src="./js/main.js?v=5"></script>
+  <script src="./js/main.js?v=6"></script>
 </body>
 </html>

@@ -22,20 +22,20 @@ window.MainMenuScene = class extends Phaser.Scene {
     // ── Title ──────────────────────────────────────────────────────────
 
     const snake = this.add.text(CX, 148, 'SNAKE', {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '88px', fontStyle: 'bold', color: '#4ade80',
     }).setOrigin(0.5);
     snake.setShadow(0, 0, '#4ade80', 34, true, true);
 
     const vibes = this.add.text(CX, 224, 'V I B E S', {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '28px', fontStyle: 'bold', color: '#22d3ee',
       letterSpacing: 12,
     }).setOrigin(0.5);
     vibes.setShadow(0, 0, '#22d3ee', 18, true, true);
 
     this.add.text(CX, 262, '2 6', {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '18px', color: '#334155', letterSpacing: 8,
     }).setOrigin(0.5);
 
@@ -130,7 +130,7 @@ window.MainMenuScene = class extends Phaser.Scene {
     const bg      = this.add.rectangle(0, 0, w, h, 0x071a0e, 0.97).setStrokeStyle(2, 0x4ade80, 1);
     const shimmer = this.add.rectangle(0, 0, w - 4, h - 4, 0x4ade80, 0.06);
     const text    = this.add.text(0, 0, label, {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '26px', color: '#4ade80', fontStyle: 'bold',
     }).setOrigin(0.5);
     text.setShadow(0, 0, '#4ade80', 16, true, true);
@@ -157,7 +157,7 @@ window.MainMenuScene = class extends Phaser.Scene {
     const bg   = this.add.rectangle(0, 0, w, h, 0x0d1324, 0.88).setStrokeStyle(1.5, colorInt, 0.75);
     const glow = this.add.rectangle(0, 0, w, h, colorInt, 0.06);
     const text = this.add.text(0, 0, label, {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '20px', color: colorHex, fontStyle: 'bold',
     }).setOrigin(0.5);
 

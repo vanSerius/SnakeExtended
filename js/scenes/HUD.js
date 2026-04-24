@@ -16,7 +16,7 @@ window.HUDScene = class extends Phaser.Scene {
     });
 
     this.scoreText = this.add.text(CX, 56, '0', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontFamily: 'Orbitron, Arial, sans-serif',
       fontSize: '54px',
       color: '#4ade80',
       fontStyle: 'bold',
@@ -26,7 +26,7 @@ window.HUDScene = class extends Phaser.Scene {
     // combo display
     this.comboGroup = this.add.container(CX, 100);
     this.comboText = this.add.text(0, 0, '', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontFamily: 'Orbitron, Arial, sans-serif',
       fontSize: '22px',
       color: '#fbbf24',
       fontStyle: 'bold',
@@ -47,7 +47,7 @@ window.HUDScene = class extends Phaser.Scene {
 
     // pause button (top-right)
     this.pauseBtn = this.add.text(CFG.DESIGN_WIDTH - 24, 28, 'II', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontFamily: 'Orbitron, Arial, sans-serif',
       fontSize: '22px',
       color: '#94a3b8',
       fontStyle: 'bold',
@@ -61,7 +61,7 @@ window.HUDScene = class extends Phaser.Scene {
     this.pauseOverlay = this.add.container(CX, CFG.DESIGN_HEIGHT / 2).setVisible(false);
     const bg = this.add.rectangle(0, 0, CFG.DESIGN_WIDTH, CFG.DESIGN_HEIGHT, 0x000000, 0.6);
     const label = this.add.text(0, -80, 'PAUSED', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontFamily: 'Orbitron, Arial, sans-serif',
       fontSize: '48px',
       color: '#e2e8f0',
       fontStyle: 'bold',
@@ -190,7 +190,7 @@ window.HUDScene = class extends Phaser.Scene {
       fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#94a3b8',
     }).setOrigin(0.5);
     const badge = this.add.text(22, -22, '', {
-      fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '14px', color: '#fbbf24', fontStyle: 'bold',
+      fontFamily: 'Orbitron, Arial, sans-serif', fontSize: '14px', color: '#fbbf24', fontStyle: 'bold',
     }).setOrigin(0.5);
 
     c.add([bg, batteryFill, icon, label, badge]);

@@ -14,7 +14,7 @@ window.HighScoresScene = class extends Phaser.Scene {
     gDeco.strokeEllipse(CX, 110, 420, 160);
 
     this.add.text(CX, 72, 'HIGH SCORES', {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '38px', color: '#22d3ee', fontStyle: 'bold',
     }).setOrigin(0.5).setShadow(0, 0, '#22d3ee', 18, true, true);
 
@@ -78,7 +78,7 @@ window.HighScoresScene = class extends Phaser.Scene {
       // rank
       const rankLabel = i === 0 ? '👑' : `#${i + 1}`;
       this._rowContainer.add(this.add.text(CX - 215, cy, rankLabel, {
-        fontFamily: '"Arial Black", Arial, sans-serif',
+        fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
         fontSize: isTop3 ? '19px' : '14px', color: rankColor,
       }).setOrigin(0, 0.5));
 
@@ -86,14 +86,14 @@ window.HighScoresScene = class extends Phaser.Scene {
       const displayName = row.player_name + (row.victory ? '  🏆' : '');
       const nameColor = isMe ? '#4ade80' : (isTop3 ? '#e2e8f0' : '#94a3b8');
       this._rowContainer.add(this.add.text(CX - 162, cy, displayName, {
-        fontFamily: isTop3 ? '"Arial Black", Arial, sans-serif' : 'Arial, sans-serif',
+        fontFamily: isTop3 ? 'Orbitron, "Arial Black", Arial, sans-serif' : 'Arial, sans-serif',
         fontSize: isTop3 ? '17px' : '14px', color: nameColor,
       }).setOrigin(0, 0.5));
 
       // score
       const scoreColor = isTop3 ? '#4ade80' : '#64748b';
       const scoreText = this.add.text(CX + 218, cy, `${row.score}`, {
-        fontFamily: '"Arial Black", Arial, sans-serif',
+        fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
         fontSize: isTop3 ? '22px' : '17px', color: scoreColor,
       }).setOrigin(1, 0.5);
       if (isTop3) scoreText.setShadow(0, 0, rankColor, 8, true, true);
@@ -108,7 +108,7 @@ window.HighScoresScene = class extends Phaser.Scene {
     const bg   = this.add.rectangle(0, 0, w, h, 0x0d1324, 0.88).setStrokeStyle(1.5, colorInt, 0.75);
     const glow = this.add.rectangle(0, 0, w, h, colorInt, 0.06);
     const text = this.add.text(0, 0, label, {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '22px', color: colorHex, fontStyle: 'bold',
     }).setOrigin(0.5);
     container.add([glow, bg, text]);

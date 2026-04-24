@@ -9,7 +9,7 @@ window.SettingsScene = class extends Phaser.Scene {
     this.add.image(CX, CFG.DESIGN_HEIGHT / 2, 'bg-gradient');
 
     this.add.text(CX, 120, 'SETTINGS', {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '44px', color: '#e2e8f0', fontStyle: 'bold',
     }).setOrigin(0.5);
 
@@ -36,7 +36,7 @@ window.SettingsScene = class extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this._nameDisplay = this.add.text(cx, y + 20, window.Storage.getPlayerName(), {
-      fontFamily: '"Arial Black", Arial, sans-serif', fontSize: '22px', color: '#22d3ee',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif', fontSize: '22px', color: '#22d3ee',
     }).setOrigin(0.5).setShadow(0, 0, '#22d3ee', 10, true, true);
 
     const bg = this.add.rectangle(cx, y + 20, 320, 54, 0x0d1324, 0.88)
@@ -129,7 +129,7 @@ window.SettingsScene = class extends Phaser.Scene {
       `width:${designW * sx}px`,
       `height:${designH * sy}px`,
       `font-size:${fsize * sy}px`,
-      'font-family:"Arial Black",Arial,sans-serif',
+      'font-family:Orbitron,"Arial Black",Arial,sans-serif',
       'color:#22d3ee',
       'background:transparent',
       'border:none',
@@ -158,7 +158,7 @@ window.SettingsScene = class extends Phaser.Scene {
     const ci = Phaser.Display.Color.HexStringToColor(colorHex).color;
     const bg = this.add.rectangle(0, 0, w, h, 0x0d1324, 0.95).setStrokeStyle(2, ci, 0.9);
     const tx = this.add.text(0, 0, label, {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '20px', color: colorHex, fontStyle: 'bold',
     }).setOrigin(0.5);
     cont.add([bg, tx]);
@@ -247,7 +247,7 @@ window.SettingsScene = class extends Phaser.Scene {
     const bg = this.add.rectangle(0, 0, w, h, 0x0d1324, 0.85)
       .setStrokeStyle(2, Phaser.Display.Color.HexStringToColor(colorHex).color, 0.9);
     const text = this.add.text(0, 0, label, {
-      fontFamily: '"Arial Black", Arial, sans-serif', fontSize: '22px',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif', fontSize: '22px',
       color: colorHex, fontStyle: 'bold',
     }).setOrigin(0.5);
     container.add([bg, text]);

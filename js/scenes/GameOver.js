@@ -19,7 +19,7 @@ window.GameOverScene = class extends Phaser.Scene {
 
     const headingColor = this.victory ? '#4ade80' : '#f87171';
     const heading = this.add.text(CX, 180, this.victory ? 'YOU WON!' : 'GAME OVER', {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '58px', color: headingColor, fontStyle: 'bold',
     }).setOrigin(0.5).setShadow(0, 0, headingColor, 22, true, true);
 
@@ -37,7 +37,7 @@ window.GameOverScene = class extends Phaser.Scene {
 
     // score count-up
     const scoreText = this.add.text(CX, 355, '0', {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '88px', color: '#4ade80', fontStyle: 'bold',
     }).setOrigin(0.5).setShadow(0, 0, '#22d3ee', 26, true, true);
 
@@ -60,7 +60,7 @@ window.GameOverScene = class extends Phaser.Scene {
 
     if (this.newBest) {
       const nb = this.add.text(CX, 512, 'NEW BEST!', {
-        fontFamily: '"Arial Black", Arial, sans-serif',
+        fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
         fontSize: '26px', color: '#fbbf24', fontStyle: 'bold',
       }).setOrigin(0.5).setShadow(0, 0, '#fbbf24', 14, true, true);
       this.tweens.add({
@@ -195,7 +195,7 @@ window.GameOverScene = class extends Phaser.Scene {
       `width:${designW * sx}px`,
       `height:${designH * sy}px`,
       `font-size:${fsize * sy}px`,
-      'font-family:"Arial Black",Arial,sans-serif',
+      'font-family:Orbitron,"Arial Black",Arial,sans-serif',
       'color:#22d3ee',
       'background:transparent',
       'border:none',
@@ -224,7 +224,7 @@ window.GameOverScene = class extends Phaser.Scene {
     const ci   = Phaser.Display.Color.HexStringToColor(colorHex).color;
     const bg   = this.add.rectangle(0, 0, w, h, 0x0d1324, 0.95).setStrokeStyle(2, ci, 0.9);
     const tx   = this.add.text(0, 0, label, {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '20px', color: colorHex, fontStyle: 'bold',
     }).setOrigin(0.5);
     cont.add([bg, tx]);
@@ -246,7 +246,7 @@ window.GameOverScene = class extends Phaser.Scene {
     const bg   = this.add.rectangle(0, 0, w, h, 0x0d1324, 0.88).setStrokeStyle(2, colorInt, 0.9);
     const glow = this.add.rectangle(0, 0, w, h, colorInt, 0.08);
     const text = this.add.text(0, 0, label, {
-      fontFamily: '"Arial Black", Arial, sans-serif',
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
       fontSize: '26px', color: colorHex, fontStyle: 'bold',
     }).setOrigin(0.5);
     container.add([glow, bg, text]);

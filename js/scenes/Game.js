@@ -1002,7 +1002,7 @@ window.GameScene = class extends Phaser.Scene {
 
     // "BOSS RUSH!" heading
     const heading = this.add.text(cx, cy - 80, 'BOSS\nRUSH!', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontFamily: 'Orbitron, Arial, sans-serif',
       fontSize: '86px', fontStyle: 'bold',
       color: '#fbbf24', align: 'center',
     }).setOrigin(0.5).setDepth(201).setAlpha(0).setScale(0.3);
@@ -1065,7 +1065,7 @@ window.GameScene = class extends Phaser.Scene {
     this.tweens.add({ targets: overlay, alpha: 0.88, duration: 450 });
 
     const heading = this.add.text(cx, cy - 80, 'YOU\nWON!', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontFamily: 'Orbitron, Arial, sans-serif',
       fontSize: '86px', fontStyle: 'bold',
       color: '#4ade80', align: 'center',
     }).setOrigin(0.5).setDepth(201).setAlpha(0).setScale(0.3);
@@ -1081,7 +1081,7 @@ window.GameScene = class extends Phaser.Scene {
     });
 
     const scoreLabel = this.add.text(cx, cy + 52, `Final Score: ${this.score}`, {
-      fontFamily: 'Arial Black, Arial, sans-serif', fontSize: '28px', color: '#fbbf24',
+      fontFamily: 'Orbitron, Arial, sans-serif', fontSize: '28px', color: '#fbbf24',
     }).setOrigin(0.5).setDepth(201).setAlpha(0);
     this.tweens.add({ targets: scoreLabel, alpha: 1, duration: 500, delay: 650 });
 

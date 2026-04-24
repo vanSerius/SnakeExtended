@@ -30,5 +30,6 @@
     input: { activePointers: 3 },
   };
 
-  new Phaser.Game(config);
+  // wait for Orbitron to load before starting so text renders correctly
+  document.fonts.ready.then(() => new Phaser.Game(config));
 })();
