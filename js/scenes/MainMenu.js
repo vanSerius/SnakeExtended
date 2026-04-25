@@ -1,235 +1,274 @@
-// MainMenu.js – Candy Arcade: colorful, rounded, playful
+// MainMenu.js – Neon Vibes: reference-faithful rebuild
 window.MainMenuScene = class extends Phaser.Scene {
   constructor() { super({ key: 'MainMenu' }); }
 
   create() {
-    const CFG = window.CONFIG;
-    const CX  = CFG.DESIGN_WIDTH  / 2;
-    const W   = CFG.DESIGN_WIDTH;
-    const H   = CFG.DESIGN_HEIGHT;
+    const CX = 270, W = 540, H = 960;
 
     this.add.image(CX, H / 2, 'bg-gradient');
-    this._drawGlowOrbs(CX, W, H);
     this._drawStars(W, H);
-    this._buildTitle(CX, H);
+    this._drawBgRings(CX, 450);
+    this._buildTitle(CX);
     this._buildBestScore(CX);
-    this._buildButtons(CX, H);
-    this._buildDots(CX);
+    this._buildPlayButton(CX, 440);
+    this._buildSecondaryButtons(CX, 562);
+    this._buildDecorativeSnake();
     this._buildFooter(CX, H);
     this._startMusic();
   }
 
-  // ── Soft coloured blob orbs ──────────────────────────────────────────────────
-
-  _drawGlowOrbs(CX, W, H) {
-    const orbs = [
-      { x: 60,  y: 220,  r: 180, col: 0x4ade80, a: 0.09 },
-      { x: W - 70, y: 300, r: 200, col: 0x22d3ee, a: 0.07 },
-      { x: 90,  y: H - 250, r: 160, col: 0xa855f7, a: 0.07 },
-      { x: W - 60, y: H - 200, r: 180, col: 0xf472b6, a: 0.06 },
-      { x: CX, y: H * 0.48, r: 260, col: 0x4ade80, a: 0.04 },
-    ];
-    orbs.forEach(o => {
-      const g = this.add.circle(o.x, o.y, o.r, o.col, o.a);
-      this.tweens.add({
-        targets: g,
-        alpha: { from: o.a * 0.5, to: o.a * 1.6 },
-        scaleX: { from: 0.9, to: 1.1 },
-        scaleY: { from: 0.9, to: 1.1 },
-        duration: 3000 + Math.random() * 2000,
-        yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-        delay: Math.random() * 2000,
-      });
-    });
-  }
-
-  // ── Twinkling stars ───────────────────────────────────────────────────────────
+  // ── Background stars ──────────────────────────────────────────────────────────
 
   _drawStars(W, H) {
-    const cols = [0xffffff, 0x4ade80, 0x22d3ee, 0xa78bfa, 0xf472b6, 0xfbbf24];
-    for (let i = 0; i < 38; i++) {
-      const x   = Math.random() * W;
-      const y   = Math.random() * H;
-      const r   = 0.8 + Math.random() * 1.8;
-      const col = cols[Math.floor(Math.random() * cols.length)];
-      const s   = this.add.circle(x, y, r, col, 1).setAlpha(0.1);
+    for (let i = 0; i < 34; i++) {
+      const s = this.add.circle(
+        Math.random() * W, Math.random() * H,
+        0.6 + Math.random() * 1.4, 0xffffff, 1
+      ).setAlpha(0.08);
       this.tweens.add({
-        targets: s, alpha: { from: 0.06, to: 0.7 },
-        duration: 800 + Math.random() * 2200,
+        targets: s, alpha: { from: 0.04, to: 0.55 },
+        duration: 900 + Math.random() * 2400,
         yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
         delay: Math.random() * 3000,
       });
     }
   }
 
-  // ── Title ────────────────────────────────────────────────────────────────────
+  // ── Subtle concentric arcs behind buttons ─────────────────────────────────────
 
-  _buildTitle(CX, H) {
-    // Each letter has its own color and bounce phase
-    const letters  = ['S', 'N', 'A', 'K', 'E'];
-    const colors   = ['#4ade80', '#34d399', '#22d3ee', '#818cf8', '#f472b6'];
-    const shadows  = ['#4ade80', '#34d399', '#22d3ee', '#818cf8', '#f472b6'];
-    const fontSize = 92;
-    const spacing  = 80;
-    const startX   = CX - ((letters.length - 1) * spacing) / 2;
-    const titleY   = 178;
-
-    letters.forEach((ch, i) => {
-      // Glow halo
-      const halo = this.add.text(startX + i * spacing, titleY, ch, {
-        fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
-        fontSize: `${fontSize}px`, color: colors[i], fontStyle: 'bold',
-      }).setOrigin(0.5).setAlpha(0.22).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1);
-
-      // Main letter
-      const lt = this.add.text(startX + i * spacing, titleY, ch, {
-        fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
-        fontSize: `${fontSize}px`, color: colors[i], fontStyle: 'bold',
-      }).setOrigin(0.5).setShadow(0, 0, shadows[i], 28, true, true);
-
-      // Staggered bounce
-      const delay = i * 110;
-      [lt, halo].forEach(t => this.tweens.add({
-        targets: t, y: { from: titleY + 4, to: titleY - 10 },
-        duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay,
-      }));
+  _drawBgRings(cx, cy) {
+    const g = this.add.graphics().setAlpha(0.07);
+    [140, 200, 262, 328].forEach(r => {
+      g.lineStyle(1, 0x22d3ee, 1);
+      g.strokeCircle(cx, cy, r);
     });
-
-    // Subtitle
-    const subY = 268;
-    const vibes = this.add.text(CX, subY, 'V I B E S', {
-      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
-      fontSize: '23px', color: '#22d3ee', letterSpacing: 12,
-    }).setOrigin(0.5).setShadow(0, 0, '#22d3ee', 14, true, true);
-
-    this.add.text(CX, 302, '2 0 2 6', {
-      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
-      fontSize: '14px', color: '#334155', letterSpacing: 8,
-    }).setOrigin(0.5);
-
-    this.tweens.add({ targets: vibes, alpha: { from: 0.6, to: 1 }, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-
-    // Playful wavy divider
-    const dg = this.add.graphics().setAlpha(0.5);
-    dg.lineStyle(2, 0x4ade80, 1);
-    dg.beginPath();
-    for (let x = CX - 100; x <= CX + 100; x += 4) {
-      const yy = 338 + Math.sin((x - CX + 100) * 0.07) * 4;
-      x === CX - 100 ? dg.moveTo(x, yy) : dg.lineTo(x, yy);
-    }
-    dg.strokePath();
   }
 
-  // ── Best score chip ───────────────────────────────────────────────────────────
+  // ── SNAKE title – per-letter neon tube effect ─────────────────────────────────
+
+  _buildTitle(CX) {
+    const titleY = 190;
+    const letters = [
+      { ch: 'S', col: 0x4ade80, css: '#4ade80', x: 82 },
+      { ch: 'N', col: 0xfbbf24, css: '#fbbf24', x: 176 },
+      { ch: 'A', col: 0xf97316, css: '#f97316', x: 270 },
+      { ch: 'K', col: 0xa855f7, css: '#a855f7', x: 364 },
+      { ch: 'E', col: 0x22d3ee, css: '#22d3ee', x: 458 },
+    ];
+
+    // Collect layers per letter for coordinated bounce
+    const byLetter = letters.map(() => []);
+
+    // Outer halos first (renders below)
+    letters.forEach((d, i) => {
+      const t = this.add.text(d.x, titleY, d.ch, {
+        fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
+        fontSize: '90px', color: d.css, fontStyle: 'bold',
+      }).setOrigin(0.5).setAlpha(0.13).setBlendMode(Phaser.BlendModes.ADD).setScale(1.36);
+      byLetter[i].push(t);
+    });
+
+    // Inner halos
+    letters.forEach((d, i) => {
+      const t = this.add.text(d.x, titleY, d.ch, {
+        fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
+        fontSize: '90px', color: d.css, fontStyle: 'bold',
+      }).setOrigin(0.5).setAlpha(0.34).setBlendMode(Phaser.BlendModes.ADD).setScale(1.1);
+      byLetter[i].push(t);
+    });
+
+    // Main letters (white core + coloured shadow = neon tube look)
+    letters.forEach((d, i) => {
+      const t = this.add.text(d.x, titleY, d.ch, {
+        fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
+        fontSize: '90px', color: '#ffffff', fontStyle: 'bold',
+      }).setOrigin(0.5).setShadow(0, 0, d.css, 28, true, true);
+      byLetter[i].push(t);
+    });
+
+    // Staggered bounce per letter
+    byLetter.forEach((layers, i) => {
+      layers.forEach(t => {
+        const base = t.y;
+        this.tweens.add({
+          targets: t, y: { from: base + 4, to: base - 10 },
+          duration: 680, yoyo: true, repeat: -1,
+          ease: 'Sine.easeInOut', delay: i * 125,
+        });
+      });
+    });
+
+    // "— VIBES —"
+    const vibes = this.add.text(CX, 270, '—  VIBES  —', {
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
+      fontSize: '22px', color: '#f472b6', letterSpacing: 6,
+    }).setOrigin(0.5).setShadow(0, 0, '#f472b6', 18, true, true);
+    this.tweens.add({ targets: vibes, alpha: { from: 0.65, to: 1 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    // "26"
+    this.add.text(CX, 304, '26', {
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
+      fontSize: '15px', color: '#475569', letterSpacing: 6,
+    }).setOrigin(0.5);
+  }
+
+  // ── Best score badge ──────────────────────────────────────────────────────────
 
   _buildBestScore(CX) {
     const best = window.Storage.getBest('journey');
     if (best <= 0) return;
 
-    const chip = this.add.container(CX, 374);
+    const chip = this.add.container(CX, 346);
     const g = this.add.graphics();
-    g.fillStyle(0x0d1324, 0.8);
-    g.fillRoundedRect(-72, -16, 144, 32, 16);
-    g.lineStyle(1.5, 0x4ade80, 0.5);
-    g.strokeRoundedRect(-72, -16, 144, 32, 16);
+    g.fillStyle(0x0d1324, 0.92);
+    g.fillRoundedRect(-82, -18, 164, 36, 18);
+    g.lineStyle(1.5, 0xfbbf24, 0.65);
+    g.strokeRoundedRect(-82, -18, 164, 36, 18);
     const t = this.add.text(0, 0, `★  BEST  ${best}`, {
       fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
-      fontSize: '13px', color: '#4ade80',
+      fontSize: '14px', color: '#fbbf24',
     }).setOrigin(0.5);
     chip.add([g, t]);
-    this.tweens.add({ targets: chip, alpha: { from: 0.6, to: 1 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
-  // ── Buttons ───────────────────────────────────────────────────────────────────
+  // ── PLAY button with rainbow border ──────────────────────────────────────────
 
-  _buildButtons(CX, H) {
-    this._makePlayButton(CX, 484, () => {
+  _buildPlayButton(CX, y) {
+    const w = 362, h = 78, r = 18;
+    const container = this.add.container(CX, y);
+
+    // Dark fill
+    const fill = this.add.graphics();
+    fill.fillStyle(0x060d1c, 1);
+    fill.fillRoundedRect(-w / 2, -h / 2, w, h, r);
+
+    // Rainbow border (line-segment approach)
+    const border = this.add.graphics();
+    this._drawRainbowBorder(border, 0, 0, w, h, r, 3);
+
+    // Soft white interior glow (ADD)
+    const glow = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.1);
+    glow.fillStyle(0xffffff, 1);
+    glow.fillRoundedRect(-w / 2 + 3, -h / 2 + 3, w - 6, h - 6, r - 2);
+
+    const text = this.add.text(0, 1, 'PLAY', {
+      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
+      fontSize: '34px', color: '#ffffff', fontStyle: 'bold', letterSpacing: 12,
+    }).setOrigin(0.5).setShadow(0, 0, '#ffffff', 12, true, true);
+
+    container.add([fill, border, glow, text]);
+    container.setSize(w, h);
+    container.setInteractive({ useHandCursor: true });
+
+    this.tweens.add({ targets: glow, alpha: { from: 0.06, to: 0.22 }, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    container.on('pointerover', () => this.tweens.add({ targets: container, scale: 1.04, duration: 120 }));
+    container.on('pointerout',  () => this.tweens.add({ targets: container, scale: 1,    duration: 120 }));
+    container.on('pointerdown', () => {
+      this.tweens.add({ targets: container, scale: 0.96, duration: 80, yoyo: true });
       window.AudioFX.clickSfx();
       window.FX.vibrate(15);
       window.AudioFX.restartMusic();
       this.scene.start('Game', { mode: 'journey' });
     });
+  }
 
-    this._makeRoundButton(CX - 82, 604, 'HIGH\nSCORES', '#22d3ee', 0x0e2a3a, () => {
+  // Draw a rounded-rect border using individual coloured line segments
+  _drawRainbowBorder(g, cx, cy, w, h, r, lw) {
+    const hw = w / 2, hh = h / 2;
+    const pts = [];
+
+    const arc = (acx, acy, startA, endA, steps) => {
+      for (let i = 0; i <= steps; i++) {
+        const a = startA + (i / steps) * (endA - startA);
+        pts.push([acx + Math.cos(a) * r, acy + Math.sin(a) * r]);
+      }
+    };
+
+    // Top edge L→R
+    for (let i = 0; i <= 14; i++) pts.push([cx - hw + r + (i / 14) * (w - 2 * r), cy - hh]);
+    // Top-right arc
+    arc(cx + hw - r, cy - hh + r, -Math.PI / 2, 0, 8);
+    // Right edge T→B
+    for (let i = 1; i <= 8; i++) pts.push([cx + hw, cy - hh + r + (i / 8) * (h - 2 * r)]);
+    // Bottom-right arc
+    arc(cx + hw - r, cy + hh - r, 0, Math.PI / 2, 8);
+    // Bottom edge R→L
+    for (let i = 1; i <= 14; i++) pts.push([cx + hw - r - (i / 14) * (w - 2 * r), cy + hh]);
+    // Bottom-left arc
+    arc(cx - hw + r, cy + hh - r, Math.PI / 2, Math.PI, 8);
+    // Left edge B→T
+    for (let i = 1; i <= 8; i++) pts.push([cx - hw, cy + hh - r - (i / 8) * (h - 2 * r)]);
+    // Top-left arc
+    arc(cx - hw + r, cy - hh + r, Math.PI, 3 * Math.PI / 2, 8);
+
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      g.lineStyle(lw, this._rainbowAt(i / n), 1);
+      const [x1, y1] = pts[i];
+      const [x2, y2] = pts[(i + 1) % n];
+      g.lineBetween(x1, y1, x2, y2);
+    }
+  }
+
+  _rainbowAt(t) {
+    const stops = [
+      [0xf472b6, 0],    // pink
+      [0xef4444, 0.14], // red
+      [0xfbbf24, 0.28], // gold
+      [0xa855f7, 0.44], // purple
+      [0x3b82f6, 0.60], // blue
+      [0x22d3ee, 0.74], // cyan
+      [0x4ade80, 0.88], // green
+      [0xf472b6, 1],    // back to pink
+    ];
+    let prev = stops[0], next = stops[1];
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (t >= stops[i][1] && t <= stops[i + 1][1]) { prev = stops[i]; next = stops[i + 1]; break; }
+    }
+    const lt = (next[1] === prev[1]) ? 0 : (t - prev[1]) / (next[1] - prev[1]);
+    const lerp = (a, b) => Math.round(a + (b - a) * lt);
+    const r = lerp((prev[0] >> 16) & 0xff, (next[0] >> 16) & 0xff);
+    const gg = lerp((prev[0] >> 8) & 0xff,  (next[0] >> 8) & 0xff);
+    const b = lerp(prev[0] & 0xff,           next[0] & 0xff);
+    return (r << 16) | (gg << 8) | b;
+  }
+
+  // ── Secondary buttons ─────────────────────────────────────────────────────────
+
+  _buildSecondaryButtons(CX, y) {
+    this._makeSecBtn(CX - 84, y, 'HIGH\nSCORES', '#22d3ee', 0x06141e, () => {
       window.AudioFX.clickSfx();
       this.scene.start('HighScores');
     });
-    this._makeRoundButton(CX + 82, 604, 'SETTINGS', '#94a3b8', 0x141e2e, () => {
+    this._makeSecBtn(CX + 84, y, 'SETTINGS', '#8b9cb8', 0x0d1220, () => {
       window.AudioFX.clickSfx();
       this.scene.start('Settings');
     });
   }
 
-  _makePlayButton(x, y, onClick) {
-    const w = 380, h = 88, r = 20;
-    const container = this.add.container(x, y);
-
-    // Shadow glow behind
-    const shadow = this.add.graphics();
-    shadow.fillStyle(0x4ade80, 0.18);
-    shadow.fillRoundedRect(-w / 2 - 6, -h / 2 - 6, w + 12, h + 12, r + 4);
-
-    // Button fill
-    const bg = this.add.graphics();
-    bg.fillStyle(0x166534, 1);
-    bg.fillRoundedRect(-w / 2, -h / 2, w, h, r);
-    // Lighter top stripe for depth
-    bg.fillStyle(0x22c55e, 0.35);
-    bg.fillRoundedRect(-w / 2 + 2, -h / 2 + 2, w - 4, h / 2 - 2, { tl: r - 2, tr: r - 2, bl: 0, br: 0 });
-
-    const text = this.add.text(0, 0, 'P L A Y', {
-      fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
-      fontSize: '32px', color: '#ffffff', fontStyle: 'bold', letterSpacing: 10,
-    }).setOrigin(0.5).setShadow(0, 2, '#000000', 6, false, true);
-
-    container.add([shadow, bg, text]);
-    container.setSize(w, h);
-    container.setInteractive({ useHandCursor: true });
-
-    this.tweens.add({ targets: shadow, alpha: { from: 0.7, to: 1.4 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-
-    container.on('pointerover', () => {
-      this.tweens.add({ targets: container, scale: 1.04, duration: 120 });
-      this.tweens.add({ targets: text, y: -3, duration: 100 });
-    });
-    container.on('pointerout',  () => {
-      this.tweens.add({ targets: container, scale: 1, duration: 120 });
-      this.tweens.add({ targets: text, y: 0, duration: 100 });
-    });
-    container.on('pointerdown', () => {
-      this.tweens.add({ targets: container, scale: 0.96, duration: 80, yoyo: true });
-      onClick();
-    });
-    return container;
-  }
-
-  _makeRoundButton(x, y, label, colorHex, fillHex, onClick) {
-    const w = 152, h = 96, r = 16;
+  _makeSecBtn(x, y, label, colorHex, fillHex, onClick) {
+    const w = 152, h = 88, r = 14;
     const container = this.add.container(x, y);
     const ci = Phaser.Display.Color.HexStringToColor(colorHex).color;
 
     const bg = this.add.graphics();
     bg.fillStyle(fillHex, 1);
     bg.fillRoundedRect(-w / 2, -h / 2, w, h, r);
-    bg.lineStyle(1.5, ci, 0.7);
+    bg.lineStyle(1.5, ci, 0.72);
     bg.strokeRoundedRect(-w / 2, -h / 2, w, h, r);
 
     const text = this.add.text(0, 0, label, {
       fontFamily: 'Orbitron, "Arial Black", Arial, sans-serif',
-      fontSize: '14px', color: colorHex, fontStyle: 'bold',
-      align: 'center', lineSpacing: 8,
+      fontSize: '13px', color: colorHex, fontStyle: 'bold',
+      align: 'center', lineSpacing: 7,
     }).setOrigin(0.5);
 
     container.add([bg, text]);
     container.setSize(w, h);
     container.setInteractive({ useHandCursor: true });
-
-    container.on('pointerover', () => {
-      this.tweens.add({ targets: container, scale: 1.07, duration: 120 });
-    });
-    container.on('pointerout',  () => {
-      this.tweens.add({ targets: container, scale: 1,    duration: 120 });
-    });
+    container.on('pointerover', () => this.tweens.add({ targets: container, scale: 1.06, duration: 120 }));
+    container.on('pointerout',  () => this.tweens.add({ targets: container, scale: 1,    duration: 120 }));
     container.on('pointerdown', () => {
       this.tweens.add({ targets: container, scale: 0.93, duration: 80, yoyo: true });
       onClick();
@@ -237,29 +276,33 @@ window.MainMenuScene = class extends Phaser.Scene {
     return container;
   }
 
-  // ── Decorative snake dots ─────────────────────────────────────────────────────
-  // A little snake shape below the buttons — purely cosmetic
+  // ── Decorative snake at bottom ────────────────────────────────────────────────
 
-  _buildDots(CX) {
-    const cols = [0x86efac, 0x4ade80, 0x22c55e, 0x15803d, 0x166534];
-    const pts  = [
-      [CX - 70, 730], [CX - 42, 722], [CX - 14, 720], [CX + 14, 722], [CX + 42, 730],
-      [CX + 68, 742], [CX + 84, 756],
+  _buildDecorativeSnake() {
+    const segs = [
+      { x: 108, y: 702, r: 13, col: 0x86efac, head: true },
+      { x: 146, y: 712, r: 11, col: 0x4ade80 },
+      { x: 184, y: 716, r: 10, col: 0xa3e635 },
+      { x: 221, y: 714, r: 9,  col: 0xfde047 },
+      { x: 256, y: 708, r: 8,  col: 0xfbbf24 },
+      { x: 290, y: 704, r: 8,  col: 0xf97316 },
+      { x: 322, y: 708, r: 7,  col: 0xef4444 },
+      { x: 352, y: 716, r: 6,  col: 0xa855f7 },
+      { x: 376, y: 724, r: 6,  col: 0x7c3aed },
+      { x: 398, y: 728, r: 5,  col: 0x3b82f6 },
+      { x: 416, y: 726, r: 4,  col: 0x22d3ee },
     ];
-    pts.forEach(([px, py], i) => {
-      const r   = i === 0 ? 10 : 8 - i * 0.4;
-      const dot = this.add.circle(px, py, Math.max(r, 5), cols[Math.min(i, cols.length - 1)], 1);
-      if (i === 0) {
-        // head eyes
-        this.add.circle(px - 3, py - 3, 2, 0x000000, 1);
-        this.add.circle(px + 3, py - 3, 2, 0x000000, 1);
+
+    segs.forEach((s, i) => {
+      const dot = this.add.circle(s.x, s.y, s.r, s.col, 1);
+      if (s.head) {
+        this.add.circle(s.x - 4, s.y - 4, 2.5, 0x052010, 1);
+        this.add.circle(s.x + 4, s.y - 4, 2.5, 0x052010, 1);
       }
       this.tweens.add({
-        targets: dot,
-        scaleX: { from: 1, to: 1.12 }, scaleY: { from: 1, to: 1.12 },
-        duration: 600 + i * 80,
-        yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-        delay: i * 60,
+        targets: dot, y: { from: s.y, to: s.y - 5 },
+        duration: 820, yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut', delay: i * 85,
       });
     });
   }
@@ -267,8 +310,8 @@ window.MainMenuScene = class extends Phaser.Scene {
   // ── Footer ────────────────────────────────────────────────────────────────────
 
   _buildFooter(CX, H) {
-    this.add.text(CX, H - 36, 'swipe  ·  arrow keys  ·  WASD', {
-      fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#1e3a50', letterSpacing: 3,
+    this.add.text(CX, H - 36, 'SWIPE OR ARROW KEYS TO MOVE', {
+      fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#1e3a50', letterSpacing: 2,
     }).setOrigin(0.5);
   }
 
