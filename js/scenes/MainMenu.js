@@ -279,31 +279,61 @@ window.MainMenuScene = class extends Phaser.Scene {
   // ── Decorative snake at bottom ────────────────────────────────────────────────
 
   _buildDecorativeSnake() {
-    const segs = [
-      { x: 108, y: 702, r: 13, col: 0x86efac, head: true },
-      { x: 146, y: 712, r: 11, col: 0x4ade80 },
-      { x: 184, y: 716, r: 10, col: 0xa3e635 },
-      { x: 221, y: 714, r: 9,  col: 0xfde047 },
-      { x: 256, y: 708, r: 8,  col: 0xfbbf24 },
-      { x: 290, y: 704, r: 8,  col: 0xf97316 },
-      { x: 322, y: 708, r: 7,  col: 0xef4444 },
-      { x: 352, y: 716, r: 6,  col: 0xa855f7 },
-      { x: 376, y: 724, r: 6,  col: 0x7c3aed },
-      { x: 398, y: 728, r: 5,  col: 0x3b82f6 },
-      { x: 416, y: 726, r: 4,  col: 0x22d3ee },
+    const N = 11;
+    const x0 = 108, dx = 24;
+    const baseY = 714;
+    const colors = [
+      0x86efac, 0x4ade80, 0xa3e635, 0xfde047, 0xfbbf24,
+      0xf97316, 0xef4444, 0xc026d3, 0xa855f7, 0x3b82f6, 0x22d3ee,
     ];
 
-    segs.forEach((s, i) => {
+    // Compute positions along a gentle sine-wave curve
+    const pts = Array.from({ length: N }, (_, i) => {
+      const t = i / (N - 1);
+      return {
+        x: x0 + i * dx,
+        y: baseY + Math.sin(t * Math.PI * 1.5) * 10,
+        r: Math.max(13 - i, 5),
+        col: colors[i],
+      };
+    });
+
+    // Body segments (drawn first so head renders on top)
+    for (let i = N - 1; i >= 1; i--) {
+      const s = pts[i];
       const dot = this.add.circle(s.x, s.y, s.r, s.col, 1);
-      if (s.head) {
-        this.add.circle(s.x - 4, s.y - 4, 2.5, 0x052010, 1);
-        this.add.circle(s.x + 4, s.y - 4, 2.5, 0x052010, 1);
-      }
       this.tweens.add({
         targets: dot, y: { from: s.y, to: s.y - 5 },
         duration: 820, yoyo: true, repeat: -1,
-        ease: 'Sine.easeInOut', delay: i * 85,
+        ease: 'Sine.easeInOut', delay: i * 80,
       });
+    }
+
+    // Head in a container so eyes + tongue travel with it
+    const h = pts[0];
+    const head = this.add.container(h.x, h.y);
+
+    // Soft glow halo
+    head.add(this.add.circle(0, 0, h.r + 5, h.col, 0.22));
+    // Head circle
+    head.add(this.add.circle(0, 0, h.r, h.col, 1));
+    // Eyes (snake faces right → eyes top-right quadrant)
+    head.add(this.add.circle(5,  -5, 2.8, 0x052e14, 1));
+    head.add(this.add.circle(11, -5, 2.8, 0x052e14, 1));
+    // Eye shine
+    head.add(this.add.circle(5.9,  -5.9, 1, 0xffffff, 0.85));
+    head.add(this.add.circle(11.9, -5.9, 1, 0xffffff, 0.85));
+    // Forked tongue
+    const tg = this.add.graphics();
+    tg.lineStyle(1.8, 0xff5e7c, 1);
+    tg.lineBetween(h.r, 1, h.r + 7, 1);
+    tg.lineBetween(h.r + 7, 1, h.r + 11, -3);
+    tg.lineBetween(h.r + 7, 1, h.r + 11,  5);
+    head.add(tg);
+
+    this.tweens.add({
+      targets: head, y: { from: h.y, to: h.y - 5 },
+      duration: 820, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
   }
 
